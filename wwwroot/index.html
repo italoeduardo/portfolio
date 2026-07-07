@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Italo Eduardo · Desenvolvedor .NET & Analista de Dados/BI</title>
+    <meta name="description" content="Portfólio de Italo Eduardo — desenvolvedor full-stack .NET, C#, Razor Pages, Blazor e Oracle. Sistemas web e dashboards que substituem planilhas e Power BI." />
+    <meta name="author" content="Italo Eduardo" />
+
+    <!-- Open Graph (LinkedIn / WhatsApp preview) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Italo Eduardo · Desenvolvedor .NET & Analista de Dados/BI" />
+    <meta property="og:description" content="Sistemas web e dashboards em C#/.NET, Blazor e Oracle. Suíte completa de painéis logísticos, comerciais e financeiros em produção." />
+
+    <base href="/" />
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+    <link href="Portfolio.styles.css" rel="stylesheet" />
+
+    <!-- GitHub Pages SPA redirect: restaura a rota salva pelo 404.html -->
+    <script>
+        (function () {
+            var redirect = sessionStorage.redirect;
+            delete sessionStorage.redirect;
+            if (redirect && redirect !== location.href) {
+                history.replaceState(null, null, redirect);
+            }
+        })();
+    </script>
+</head>
+
+<body>
+    <div id="app">
+        <div class="loading-condor">
+            <div class="spinner"></div>
+            <p>Carregando C# no navegador…</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        Ocorreu um erro inesperado.
+        <a href="" class="reload">Recarregar</a>
+        <a class="dismiss">🗙</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+</body>
+
+</html>

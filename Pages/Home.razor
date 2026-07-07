@@ -1,0 +1,178 @@
+@page "/"
+
+<PageTitle>Italo Eduardo · Desenvolvedor .NET & Analista de Dados/BI</PageTitle>
+
+@* ===================== HERO ===================== *@
+<section class="hero" id="topo">
+    <div class="hero-bg"></div>
+    <div class="hero-inner">
+        <p class="hero-hello">Olá, eu sou o</p>
+        <h1 class="hero-nome">@PortfolioData.Nome</h1>
+        <h2 class="hero-titulo">@PortfolioData.Titulo</h2>
+        <p class="hero-tagline">
+            Transformo dados operacionais em <strong>sistemas web</strong> e
+            <strong>dashboards</strong> que substituem planilhas e relatórios de BI —
+            do banco de dados ao deploy em produção.
+        </p>
+        <div class="hero-cta">
+            <a href="#projetos" class="btn btn-primary">Ver projetos</a>
+            <a href="#contato" class="btn btn-ghost">Falar comigo</a>
+        </div>
+        <div class="hero-stack">
+            @foreach (var t in _stackHero)
+            {
+                <span class="chip">@t</span>
+            }
+        </div>
+    </div>
+    <a href="#sobre" class="scroll-hint" aria-label="Rolar">▾</a>
+</section>
+
+@* ===================== SOBRE ===================== *@
+<section class="secao secao-clara" id="sobre">
+    <div class="container">
+        <span class="secao-eyebrow">Quem sou</span>
+        <h2 class="secao-titulo">Sobre mim</h2>
+        <div class="sobre-grid">
+            <p class="sobre-texto">@PortfolioData.Resumo</p>
+            <div class="stats">
+                @foreach (var e in PortfolioData.Estatisticas)
+                {
+                    <div class="stat">
+                        <span class="stat-valor">@e.Valor</span>
+                        <span class="stat-rotulo">@e.Rotulo</span>
+                    </div>
+                }
+            </div>
+        </div>
+    </div>
+</section>
+
+@* ===================== SKILLS ===================== *@
+<section class="secao secao-navy" id="skills">
+    <div class="container">
+        <span class="secao-eyebrow">O que eu uso</span>
+        <h2 class="secao-titulo secao-titulo-claro">Competências técnicas</h2>
+        <div class="skills-grid">
+            @foreach (var s in PortfolioData.Skills)
+            {
+                <div class="skill-card">
+                    <div class="skill-head">
+                        <span class="skill-icone">@s.Icone</span>
+                        <h3>@s.Nome</h3>
+                    </div>
+                    <div class="skill-itens">
+                        @foreach (var i in s.Itens)
+                        {
+                            <span class="tag">@i</span>
+                        }
+                    </div>
+                </div>
+            }
+        </div>
+    </div>
+</section>
+
+@* ===================== PROJETOS ===================== *@
+<section class="secao secao-clara" id="projetos">
+    <div class="container">
+        <span class="secao-eyebrow">Portfólio</span>
+        <h2 class="secao-titulo">Projetos em destaque</h2>
+
+        <div class="filtros">
+            @foreach (var cat in _categorias)
+            {
+                <button class="filtro @(_categoriaAtiva == cat ? "ativo" : "")"
+                        @onclick="() => _categoriaAtiva = cat">
+                    @cat
+                </button>
+            }
+        </div>
+
+        <div class="projetos-grid">
+            @foreach (var p in ProjetosFiltrados)
+            {
+                <article class="projeto-card" style="--accent:@p.CorAccent">
+                    <div class="projeto-top">
+                        <span class="projeto-icone">@p.Icone</span>
+                        <div class="projeto-badges">
+                            <span class="badge-cat">@p.Categoria</span>
+                            @if (p.EmProducao)
+                            {
+                                <span class="badge-prod">● Em produção</span>
+                            }
+                        </div>
+                    </div>
+                    <h3 class="projeto-nome">@p.Nome</h3>
+                    <p class="projeto-sub">@p.Subtitulo</p>
+                    <p class="projeto-desc">@p.Descricao</p>
+
+                    <ul class="projeto-destaques">
+                        @foreach (var d in p.Destaques)
+                        {
+                            <li>@d</li>
+                        }
+                    </ul>
+
+                    <div class="projeto-techs">
+                        @foreach (var t in p.Tecnologias)
+                        {
+                            <span class="tag tag-sm">@t</span>
+                        }
+                    </div>
+
+                    @if (p.Url is not null || p.Repo is not null)
+                    {
+                        <div class="projeto-links">
+                            @if (p.Url is not null)
+                            {
+                                <a href="@p.Url" target="_blank" rel="noopener" class="link-proj">Acessar ↗</a>
+                            }
+                            @if (p.Repo is not null)
+                            {
+                                <a href="@p.Repo" target="_blank" rel="noopener" class="link-proj link-repo">Código ↗</a>
+                            }
+                        </div>
+                    }
+                </article>
+            }
+        </div>
+    </div>
+</section>
+
+@* ===================== CONTATO ===================== *@
+<section class="secao secao-navy secao-contato" id="contato">
+    <div class="container container-estreito">
+        <span class="secao-eyebrow">Vamos conversar</span>
+        <h2 class="secao-titulo secao-titulo-claro">Bora construir algo juntos?</h2>
+        <p class="contato-texto">
+            Estou aberto a oportunidades e projetos. Se você curtiu o que viu,
+            me chama — respondo rápido.
+        </p>
+        <div class="contato-links">
+            <a href="mailto:@PortfolioData.Email" class="contato-btn">✉️ @PortfolioData.Email</a>
+            <a href="@PortfolioData.LinkedIn" target="_blank" rel="noopener" class="contato-btn">in LinkedIn</a>
+            <a href="@PortfolioData.GitHub" target="_blank" rel="noopener" class="contato-btn">⌥ GitHub</a>
+        </div>
+    </div>
+</section>
+
+@code {
+    private readonly string[] _stackHero =
+        { "C#", ".NET 8", "Razor Pages", "Blazor", "Oracle SQL", "React", "Power BI → Web" };
+
+    private string[] _categorias = Array.Empty<string>();
+    private string _categoriaAtiva = "Todos";
+
+    protected override void OnInitialized()
+    {
+        _categorias = new[] { "Todos" }
+            .Concat(PortfolioData.Projetos.Select(p => p.Categoria).Distinct())
+            .ToArray();
+    }
+
+    private IEnumerable<Projeto> ProjetosFiltrados =>
+        _categoriaAtiva == "Todos"
+            ? PortfolioData.Projetos
+            : PortfolioData.Projetos.Where(p => p.Categoria == _categoriaAtiva);
+}

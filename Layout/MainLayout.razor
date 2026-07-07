@@ -1,0 +1,33 @@
+@inherits LayoutComponentBase
+
+<div class="page">
+    <nav class="topbar" id="topbar">
+        <a href="#topo" class="brand">
+            <span class="brand-mark">IE</span>
+            <span class="brand-name">Italo Eduardo</span>
+        </a>
+        <button class="nav-toggle" @onclick="ToggleMenu" aria-label="Menu">
+            <span></span><span></span><span></span>
+        </button>
+        <div class="nav-links @(_menuAberto ? "open" : "")" @onclick="FecharMenu">
+            <a href="#sobre">Sobre</a>
+            <a href="#skills">Skills</a>
+            <a href="#projetos">Projetos</a>
+            <a href="#contato" class="nav-cta">Contato</a>
+        </div>
+    </nav>
+
+    <main>
+        @Body
+    </main>
+
+    <footer class="rodape">
+        <p>© @DateTime.Now.Year Italo Eduardo · Feito com Blazor WebAssembly (C# no navegador 💠)</p>
+    </footer>
+</div>
+
+@code {
+    private bool _menuAberto;
+    private void ToggleMenu() => _menuAberto = !_menuAberto;
+    private void FecharMenu() => _menuAberto = false;
+}

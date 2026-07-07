@@ -1,0 +1,62 @@
+name: Deploy Blazor WASM no GitHub Pages
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:   # permite rodar manualmente pela aba Actions
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# Cancela deploys antigos se um novo push chegar
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Instalar .NET 8
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: 8.0.x
+
+      - name: Publish
+        run: dotnet publish Portfolio.csproj -c Release -o release --nologo
+
+      # GitHub Pages de projeto serve em /NOME-DO-REPO/ — ajusta o base href.
+      - name: Ajustar base href para o nome do repositório
+        run: |
+          REPO="${GITHUB_REPOSITORY#*/}"
+          echo "Ajustando base href para /$REPO/"
+          sed -i "s|<base href=\"/\" />|<base href=\"/$REPO/\" />|g" release/wwwroot/index.html
+          # 404.html volta para a base do projeto (não a raiz do domínio)
+          sed -i "s|URL='/'|URL='/$REPO/'|g" release/wwwroot/404.html
+
+      - name: Garantir .nojekyll
+        run: touch release/wwwroot/.nojekyll
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload do artefato
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: release/wwwroot
+
+  deploy:
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Deploy no GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
