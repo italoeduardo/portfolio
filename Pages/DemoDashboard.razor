@@ -1,0 +1,282 @@
+@using Portfolio.Data
+
+@* ================= DEMO: DataVision ================= *@
+<div class="demo">
+    <div class="demo-head">
+        <div>
+            <h3 class="demo-titulo">📊 DataVision <span class="demo-tag">demo ao vivo</span></h3>
+            <p class="demo-sub">
+                Analytics de uma distribuidora fictícia — todos os números são gerados em C#
+                aqui no seu navegador. Troque a região e veja tudo recalcular.
+            </p>
+        </div>
+        <div class="demo-regioes">
+            @foreach (var r in _opcoesRegiao)
+            {
+                <button class="demo-reg @(r == _regiao ? "ativo" : "")" @onclick="() => Selecionar(r)">@r</button>
+            }
+        </div>
+    </div>
+
+    @* ---- KPIs ---- *@
+    <div class="demo-kpis">
+        @foreach (var k in _resumo.Kpis)
+        {
+            var bom = k.MaiorEhMelhor ? k.VariacaoPct >= 0 : k.VariacaoPct <= 0;
+            <div class="demo-kpi">
+                <span class="demo-kpi-rot">@k.Rotulo</span>
+                <span class="demo-kpi-val">@k.Valor</span>
+                <span class="demo-kpi-var @(bom ? "up" : "down")">
+                    @(k.VariacaoPct >= 0 ? "▲" : "▼") @Math.Abs(k.VariacaoPct).ToString("N1")@(k.Rotulo.Contains("SLA") ? " pts" : "%")
+                </span>
+            </div>
+        }
+    </div>
+
+    <div class="demo-graficos">
+        @* ---- Barras: faturamento mensal ---- *@
+        <div class="demo-card demo-card-wide">
+            <h4>Faturamento por mês</h4>
+            <svg viewBox="0 0 660 260" class="demo-svg" role="img" aria-label="Faturamento por mês">
+                @{
+                    var maxBar = (double)_resumo.FaturamentoMensal.Max(b => b.Valor);
+                    double bw = 660.0 / _resumo.FaturamentoMensal.Length;
+                }
+                @* linhas de grade *@
+                @for (int g = 1; g <= 4; g++)
+                {
+                    double y = 20 + (200.0 / 4) * g;
+                    <line x1="0" y1="@F(y)" x2="660" y2="@F(y)" class="demo-grid" />
+                }
+                @for (int i = 0; i < _resumo.FaturamentoMensal.Length; i++)
+                {
+                    var b = _resumo.FaturamentoMensal[i];
+                    double h = maxBar > 0 ? (double)b.Valor / maxBar * 200 : 0;
+                    double x = i * bw + bw * 0.18;
+                    double w = bw * 0.64;
+                    double y = 220 - h;
+                    <rect x="@F(x)" y="@F(y)" width="@F(w)" height="@F(h)" rx="4" class="demo-bar">
+                        <title>@b.Mes: @DemoData.Moeda(b.Valor)</title>
+                    </rect>
+                    @SvgText(x + w / 2, 238, "demo-axis", b.Mes)
+                }
+            </svg>
+        </div>
+
+        @* ---- Donut: participação por categoria ---- *@
+        <div class="demo-card">
+            <h4>Mix por categoria</h4>
+            <div class="demo-donut-wrap">
+                <svg viewBox="0 0 120 120" class="demo-donut" role="img" aria-label="Participação por categoria">
+                    @{
+                        double circ = 2 * Math.PI * 45;
+                        double acc = 0;
+                    }
+                    <circle cx="60" cy="60" r="45" class="demo-donut-bg" />
+                    @foreach (var f in _resumo.PorCategoria)
+                    {
+                        double len = f.Pct / 100 * circ;
+                        <circle cx="60" cy="60" r="45" fill="none" stroke="@f.Cor" stroke-width="16"
+                                stroke-dasharray="@F(len) @F(circ - len)" stroke-dashoffset="@F(-acc)"
+                                transform="rotate(-90 60 60)">
+                            <title>@f.Categoria: @f.Pct.ToString("N1")%</title>
+                        </circle>
+                        acc += len;
+                    }
+                    @SvgText(60, 58, "demo-donut-c1", _resumo.PorCategoria.Length.ToString())
+                    @SvgText(60, 72, "demo-donut-c2", "categorias")
+                </svg>
+                <div class="demo-legenda">
+                    @foreach (var f in _resumo.PorCategoria)
+                    {
+                        <div class="demo-leg-item">
+                            <span class="demo-leg-cor" style="background:@f.Cor"></span>
+                            <span class="demo-leg-nome">@f.Categoria</span>
+                            <span class="demo-leg-pct">@f.Pct.ToString("N1")%</span>
+                        </div>
+                    }
+                </div>
+            </div>
+        </div>
+
+        @* ---- Barras horizontais: SLA por região ---- *@
+        <div class="demo-card">
+            <h4>SLA por região <span class="demo-meta">meta 95%</span></h4>
+            <div class="demo-sla">
+                @foreach (var s in _resumo.SlaPorRegiao)
+                {
+                    <div class="demo-sla-row">
+                        <span class="demo-sla-nome">@s.Regiao</span>
+                        <div class="demo-sla-track">
+                            <div class="demo-sla-fill @(s.SlaPct < 95 ? "ruim" : "bom")" style="width:@F((s.SlaPct - 80) / 20 * 100)%"></div>
+                        </div>
+                        <span class="demo-sla-val">@s.SlaPct.ToString("N1")%</span>
+                    </div>
+                }
+            </div>
+        </div>
+
+        @* ---- Tabela: top produtos ---- *@
+        <div class="demo-card demo-card-wide">
+            <h4>Top produtos — recorte @( _regiao )</h4>
+            <div class="demo-tabela-wrap">
+                <table class="demo-tabela">
+                    <thead>
+                        <tr><th>Produto</th><th>Categoria</th><th class="num">Faturamento</th><th class="num">Unidades</th><th class="num">Margem</th></tr>
+                    </thead>
+                    <tbody>
+                        @foreach (var p in _resumo.TopProdutos)
+                        {
+                            <tr>
+                                <td>@p.Produto</td>
+                                <td><span class="demo-pill">@p.Categoria</span></td>
+                                <td class="num">@DemoData.Moeda(p.Faturamento)</td>
+                                <td class="num">@p.Unidades.ToString("N0")</td>
+                                <td class="num">@p.MargemPct.ToString("N1")%</td>
+                            </tr>
+                        }
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    @* ---- Insight automático ---- *@
+    <div class="demo-insight">
+        <span class="demo-insight-ico">🤖</span>
+        <div>
+            <strong>Insight automático</strong>
+            <p>@_resumo.Insight</p>
+        </div>
+    </div>
+
+    @* ---- Showcase de código: Java / C# / SQL ---- *@
+    <div class="demo-code">
+        <div class="demo-code-head">
+            <span class="demo-code-titulo">👨‍💻 Por trás dos dados</span>
+            <div class="demo-code-tabs">
+                @foreach (var t in _tabs)
+                {
+                    <button class="demo-code-tab @(t == _tab ? "ativo" : "")" @onclick="() => _tab = t">@t</button>
+                }
+            </div>
+        </div>
+        <pre class="demo-code-body"><code>@CodigoAtual</code></pre>
+        <p class="demo-code-nota">
+            Numa arquitetura real, o front-end (Blazor/C#) consumiria uma API REST em <strong>Java (Spring Boot)</strong>
+            ou <strong>C# (.NET)</strong>, que por sua vez roda consultas <strong>SQL</strong> agregadas no banco.
+            Aqui os três estão representados; os dados são simulados em C# para a demo rodar sem servidor.
+        </p>
+    </div>
+</div>
+
+@code {
+    private readonly string[] _opcoesRegiao =
+        new[] { "Todas" }.Concat(DemoData.Regioes).ToArray();
+    private string _regiao = "Todas";
+    private ResumoDashboard _resumo = default!;
+
+    private readonly string[] _tabs = { "Java", "C#", "SQL" };
+    private string _tab = "Java";
+
+    protected override void OnInitialized() => _resumo = DemoData.Resumo(_regiao);
+
+    private void Selecionar(string r)
+    {
+        _regiao = r;
+        _resumo = DemoData.Resumo(r);
+    }
+
+    private static string F(double v) => v.ToString("0.##", System.Globalization.CultureInfo.InvariantCulture);
+
+    // Gera um <text> de SVG via MarkupString para evitar o conflito com a tag <text> do Razor.
+    private static MarkupString SvgText(double x, double y, string cls, string content) =>
+        (MarkupString)$"<text x=\"{F(x)}\" y=\"{F(y)}\" class=\"{cls}\" text-anchor=\"middle\">{System.Net.WebUtility.HtmlEncode(content)}</text>";
+
+    private string CodigoAtual => _tab switch
+    {
+        "Java" => JavaSrc,
+        "C#" => CSharpSrc,
+        _ => SqlSrc,
+    };
+
+    private const string JavaSrc =
+@"// API REST em Java (Spring Boot) que serve o resumo de vendas
+@RestController
+@RequestMapping(""/api/vendas"")
+public class VendasController {
+
+    private final VendasService service;
+
+    public VendasController(VendasService service) {
+        this.service = service;
+    }
+
+    @GetMapping(""/resumo"")
+    public ResumoDTO resumo(@RequestParam(defaultValue = ""Todas"") String regiao) {
+        return service.resumoPorRegiao(regiao);
+    }
+}
+
+@Service
+public class VendasService {
+
+    private final VendasRepository repo;
+
+    public ResumoDTO resumoPorRegiao(String regiao) {
+        List<VendaMensal> dados = repo.buscarPorRegiao(regiao);
+        BigDecimal faturamento = dados.stream()
+                .map(VendaMensal::getFaturamento)
+                .reduce(BigDecimal.ZERO, BigDecimal::add);
+        double sla = dados.stream()
+                .mapToDouble(VendaMensal::getSlaPct)
+                .average().orElse(0);
+        return new ResumoDTO(faturamento, sla, agruparPorCategoria(dados));
+    }
+}";
+
+    private const string CSharpSrc =
+@"// Agregação em C# (.NET) — o mesmo cálculo que roda nesta demo
+public ResumoDashboard Resumo(string regiaoFiltro)
+{
+    var dados = Base()
+        .Where(r => regiaoFiltro == ""Todas"" || r.Regiao == regiaoFiltro)
+        .ToList();
+
+    var atual    = dados.Where(r => r.MesIndex >= 6).ToList();
+    var anterior = dados.Where(r => r.MesIndex <  6).ToList();
+
+    decimal fatAtual = atual.Sum(r => r.Faturamento);
+    decimal fatAnt   = anterior.Sum(r => r.Faturamento);
+    double  variacao = (double)((fatAtual - fatAnt) / fatAnt) * 100;
+
+    var porCategoria = dados
+        .GroupBy(r => r.Categoria)
+        .Select(g => new FatiaCategoria(
+            g.Key,
+            g.Sum(r => r.Faturamento),
+            g.Sum(r => r.Faturamento) / dados.Sum(r => r.Faturamento) * 100))
+        .OrderByDescending(f => f.Valor)
+        .ToArray();
+
+    return new ResumoDashboard(fatAtual, variacao, porCategoria);
+}";
+
+    private const string SqlSrc =
+@"-- Consulta SQL de agregação que alimenta o dashboard
+SELECT
+    v.regiao,
+    v.categoria,
+    TO_CHAR(v.data_venda, 'YYYY-MM')          AS competencia,
+    SUM(v.valor_total)                        AS faturamento,
+    COUNT(DISTINCT v.pedido_id)               AS pedidos,
+    SUM(v.quantidade)                         AS unidades,
+    ROUND(AVG(CASE WHEN e.no_prazo = 'S'
+                   THEN 100 ELSE 0 END), 1)   AS sla_pct
+FROM   vendas v
+JOIN   entregas e ON e.pedido_id = v.pedido_id
+WHERE  (:regiao = 'Todas' OR v.regiao = :regiao)
+  AND  v.data_venda >= ADD_MONTHS(TRUNC(SYSDATE, 'YYYY'), 0)
+GROUP  BY v.regiao, v.categoria, TO_CHAR(v.data_venda, 'YYYY-MM')
+ORDER  BY faturamento DESC;";
+}

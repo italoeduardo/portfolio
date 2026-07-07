@@ -5,27 +5,27 @@ namespace Portfolio.Data;
 /// <summary>
 /// Fonte única de verdade do conteúdo do portfólio.
 /// Editar aqui reflete automaticamente em todas as seções da página.
+/// Obs.: todos os projetos são apresentados como cases com dados fictícios.
 /// </summary>
 public static class PortfolioData
 {
     public const string Nome = "Italo Eduardo";
-    public const string Titulo = "Desenvolvedor .NET & Analista de Dados / BI";
+    public const string Titulo = "Desenvolvedor Full-Stack & Analista de Dados / BI";
     public const string Email = "italoeduardo368@gmail.com";
     public const string LinkedIn = "https://www.linkedin.com/";
     public const string GitHub = "https://github.com/";
 
     public const string Resumo =
-        "Desenvolvedor full-stack focado em transformar dados operacionais em sistemas web " +
-        "e dashboards que substituem planilhas e relatórios de BI por aplicações vivas, com " +
+        "Desenvolvedor full-stack focado em transformar dados operacionais em sistemas web e " +
+        "dashboards que substituem planilhas e relatórios de BI por aplicações vivas — com " +
         "autenticação, metas editáveis e análise assistida por IA. Trabalho de ponta a ponta: " +
-        "modelagem de dados no Oracle, back-end em C#/.NET, front-end responsivo e deploy em " +
-        "produção com nginx + systemd. Já entreguei uma suíte completa de painéis logísticos, " +
-        "comerciais e financeiros rodando em produção.";
+        "modelagem de dados em SQL, back-end em C#/.NET e Java, front-end responsivo e deploy em " +
+        "produção com Linux, nginx e systemd. Os cases abaixo são apresentados com dados fictícios.";
 
     public static readonly Estatistica[] Estatisticas =
     {
-        new("9+", "Sistemas entregues"),
-        new("7", "Apps em produção"),
+        new("9+", "Projetos entregues"),
+        new("2", "Linguagens principais"),
         new("100%", "Full-stack"),
         new("∞", "Café ☕"),
     };
@@ -34,8 +34,8 @@ public static class PortfolioData
     {
         new("Back-end", "🧩", new[]
         {
-            "C#", ".NET 8 / ASP.NET Core", "Razor Pages", "Blazor WebAssembly",
-            "Java", "Node.js", "REST APIs"
+            "C#", ".NET 8 / ASP.NET Core", "Java", "Spring Boot",
+            "Razor Pages", "Blazor WebAssembly", "Node.js", "REST APIs"
         }),
         new("Front-end", "🎨", new[]
         {
@@ -44,12 +44,12 @@ public static class PortfolioData
         }),
         new("Dados & BI", "📊", new[]
         {
-            "Oracle (WinThor)", "SQL avançado", "SQLite", "Prisma ORM",
+            "SQL avançado", "Oracle", "SQLite", "Prisma ORM",
             "Modelagem de dados", "Power BI → Web", "ETL & integrações"
         }),
         new("IA & Automação", "🤖", new[]
         {
-            "Google Gemini API", "Análise assistida por IA", "Python",
+            "APIs de IA generativa", "Análise assistida por IA", "Python",
             "Background workers", "Integração de APIs externas"
         }),
         new("DevOps & Deploy", "🚀", new[]
@@ -62,134 +62,145 @@ public static class PortfolioData
     public static readonly Projeto[] Projetos =
     {
         new(
-            Nome: "OTIF",
-            Subtitulo: "On Time In Full — SLA logístico",
-            Descricao: "Sistema que mede o percentual de pedidos entregues no prazo E sem corte, " +
-                       "cruzando dados do ERP com eventos reais de entrega. Régua de prazo por UF " +
-                       "(D+dias úteis, ignorando feriados), visão 'Realizado' para gerência e 'Em Risco' " +
-                       "para a logística agir, com drill-down explicando por que cada pedido falhou.",
-            Icone: "🎯",
-            Categoria: "Logística",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle", "Chart.js", "Bootstrap 5" },
+            Nome: "DataVision",
+            Subtitulo: "Dashboard de análise de dados — DEMO AO VIVO ↓",
+            Descricao: "Aplicação de analytics interativa que roda aqui mesmo nesta página: KPIs com comparação " +
+                       "de período, gráficos reativos, ranking de SLA e insights automáticos — tudo com dados " +
+                       "fictícios gerados em C#. Inclui um showcase do back-end em Java (Spring Boot), C# (.NET) e SQL.",
+            Icone: "📊",
+            Categoria: "Analytics",
+            Tecnologias: new[] { "C#", "Java", "Blazor WASM", "SQL", "SVG", "Data Viz" },
             Destaques: new[]
             {
-                "Cálculo de prazo por UF só em dias úteis",
-                "Duas visões: OTIF Realizado e OTIF em Risco",
-                "Drill-down do motivo da falha (atraso × corte)",
+                "Roda ao vivo no navegador (WebAssembly)",
+                "Gráficos em SVG puro, reativos aos filtros",
+                "Insights automáticos + showcase de código",
             },
             CorAccent: "#E76B2F",
-            Url: "https://otif.condorbrasil.com.br"
+            Url: "#demo"
         ),
         new(
-            Nome: "GEROT",
-            Subtitulo: "Painel de KPIs logísticos com IA",
-            Descricao: "Recriação web de um painel de Power BI: 12 cards de indicadores + KPIs de topo " +
-                       "(faturamento, cortes, devoluções, tempo de retira…), metas editáveis por usuário master " +
-                       "e um botão de análise com IA que resume o período, aponta riscos e projeta o fechamento.",
-            Icone: "📈",
+            Nome: "SLA Tracker",
+            Subtitulo: "OTIF — On Time In Full",
+            Descricao: "Sistema que mede o percentual de pedidos entregues no prazo E sem corte, cruzando dados " +
+                       "do ERP com eventos reais de entrega. Régua de prazo por estado (dias úteis, ignorando " +
+                       "feriados), visão gerencial e visão operacional, com drill-down explicando por que cada " +
+                       "pedido falhou.",
+            Icone: "🎯",
             Categoria: "Logística",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle", "SQLite", "Gemini AI", "Chart.js" },
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL", "Chart.js", "Bootstrap 5" },
             Destaques: new[]
             {
-                "12 indicadores + metas editáveis (SQLite)",
-                "Análise automática com Google Gemini",
-                "Cache inteligente e auto-refresh",
+                "Cálculo de prazo por estado só em dias úteis",
+                "Duas visões: realizado e em risco",
+                "Drill-down do motivo da falha (atraso × corte)",
             },
-            CorAccent: "#1E3A8A",
-            Url: "https://gerot.condorbrasil.com.br"
+            CorAccent: "#1E3A8A"
         ),
         new(
-            Nome: "Painel de Despesas",
+            Nome: "LogiBoard",
+            Subtitulo: "Painel de KPIs logísticos com IA",
+            Descricao: "Recriação web de um painel de BI: 12 indicadores + KPIs de topo (faturamento, cortes, " +
+                       "devoluções, tempo de operação…), metas editáveis por usuário master e um botão de análise " +
+                       "com IA que resume o período, aponta riscos e projeta o fechamento.",
+            Icone: "📈",
+            Categoria: "Logística",
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL", "IA generativa", "Chart.js" },
+            Destaques: new[]
+            {
+                "12 indicadores + metas editáveis",
+                "Análise automática com IA generativa",
+                "Cache inteligente e auto-refresh",
+            },
+            CorAccent: "#1E3A8A"
+        ),
+        new(
+            Nome: "FinPanel",
             Subtitulo: "DRE + Frete com toggle Competência × Caixa",
-            Descricao: "Substitui o Power BI de DRE. Duas páginas (DRE e Frete) com KPIs comparados ao " +
+            Descricao: "Substitui um painel de BI de DRE. Duas páginas (DRE e Frete) com KPIs comparados ao " +
                        "período anterior, gráficos clicáveis com drill-down até o lançamento, e um toggle " +
-                       "Competência/Caixa que reprocessa tudo no SQL. Faturamento validado batendo exato com o BI.",
+                       "Competência/Caixa que reprocessa tudo diretamente no SQL.",
             Icone: "💰",
             Categoria: "Financeiro",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle", "Gemini AI", "Chart.js" },
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL", "IA generativa", "Chart.js" },
             Destaques: new[]
             {
                 "Toggle Competência × Caixa direto no SQL",
                 "Drill-down até o lançamento contábil",
-                "Faturamento validado 100% vs Power BI",
+                "Comparação automática vs período anterior",
             },
-            CorAccent: "#198754",
-            Url: "https://paineldespesas.condorbrasil.com.br"
+            CorAccent: "#198754"
         ),
         new(
-            Nome: "Produtividade",
-            Subtitulo: "Separação WMS em tempo quase real",
-            Descricao: "Painel que substitui o Power BI de produtividade da separação no WMS. Mostra KPIs de OS, " +
-                       "peso e itens separados, matriz Separador × Setor, ranking de colaboradores e evolução " +
-                       "dia a dia, com filtros ágeis por unidade, turno, setor e colaborador.",
+            Nome: "WarehouseFlow",
+            Subtitulo: "Produtividade de separação (WMS)",
+            Descricao: "Painel que substitui um relatório de BI de produtividade da separação no WMS. Mostra KPIs " +
+                       "de ordens de serviço, peso e itens separados, matriz Separador × Setor, ranking de " +
+                       "colaboradores e evolução dia a dia, com filtros ágeis por unidade, turno e setor.",
             Icone: "📦",
             Categoria: "Operação",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle", "Chart.js" },
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL", "Chart.js" },
             Destaques: new[]
             {
                 "Matriz Separador × Setor",
                 "Ranking de colaboradores",
                 "Filtros por unidade, turno e setor",
             },
-            CorAccent: "#5A3A6F",
-            Url: "https://produtividade.condorbrasil.com.br"
+            CorAccent: "#5A3A6F"
         ),
         new(
-            Nome: "Checklist",
-            Subtitulo: "Inspeções de frota via API Checkbits",
-            Descricao: "Sincroniza a API do Checkbits a cada hora (background worker), persiste no Oracle e " +
+            Nome: "FleetCheck",
+            Subtitulo: "Inspeções de frota via API externa",
+            Descricao: "Sincroniza uma API de checklists a cada hora (background worker), persiste no banco e " +
                        "renderiza um painel de inspeções de empilhadeiras/frota: score médio, conformidade, " +
-                       "ranking de operadores e itens mais reprovados. Substitui o relatório de Power BI.",
+                       "ranking de operadores e itens mais reprovados. Substitui um relatório de BI.",
             Icone: "✅",
             Categoria: "Operação",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle", "REST API", "Chart.js" },
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL", "REST API", "Chart.js" },
             Destaques: new[]
             {
                 "Background worker sincroniza a cada 1h",
-                "Integração com API externa (Checkbits)",
-                "3.500+ checklists e 45 mil itens importados",
+                "Integração com API externa (JSON)",
+                "Milhares de checklists e itens importados",
             },
-            CorAccent: "#0D6EFD",
-            Url: "https://checklist.condorbrasil.com.br"
+            CorAccent: "#0D6EFD"
         ),
         new(
-            Nome: "Projeção de Cargas",
+            Nome: "RouteCast",
             Subtitulo: "Projeção de prazos de entrega",
-            Descricao: "Primeiro app da suíte: consome uma query pesada do ERP e projeta o prazo de cada carga, " +
-                       "com dashboard de KPIs, lista pesquisável (DataTables) e detalhe do pedido com mensagem " +
-                       "pronta para o SAC. Deu início ao padrão de todas as apps seguintes.",
+            Descricao: "Consome uma query pesada do ERP e projeta o prazo de cada carga, com dashboard de KPIs, " +
+                       "lista pesquisável (busca, ordenação e filtros) e detalhe do pedido com mensagem pronta " +
+                       "para o atendimento. Foi o projeto que deu início a todo um padrão de aplicações.",
             Icone: "🚚",
             Categoria: "Logística",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle", "DataTables.js", "Bootstrap 5" },
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL", "DataTables.js", "Bootstrap 5" },
             Destaques: new[]
             {
                 "Cache em memória para respostas em ms",
                 "Lista com busca, ordenação e filtros",
-                "Mensagem pronta para o SAC por pedido",
+                "Mensagem pronta para o atendimento por pedido",
             },
-            CorAccent: "#E76B2F",
-            Url: "https://projecaovendas.condorbrasil.com.br"
+            CorAccent: "#E76B2F"
         ),
         new(
-            Nome: "FMeta",
-            Subtitulo: "Cadastro de metas de vendas",
-            Descricao: "Aposenta uma planilha de metas com 3 abas (diária, positivação e mensal). Grava tudo " +
-                       "em tabelas Oracle com UPSERT (MERGE), virando fonte de verdade consumida por outros " +
-                       "dashboards. Equipes puxadas direto do cadastro de supervisores do ERP.",
+            Nome: "MetaVendas",
+            Subtitulo: "Gestão de metas comerciais",
+            Descricao: "Aposenta uma planilha de metas com múltiplas abas (diária, positivação e mensal). Grava " +
+                       "tudo em tabelas SQL com UPSERT (MERGE), virando fonte de verdade consumida por outros " +
+                       "dashboards. Equipes puxadas direto do cadastro de supervisores.",
             Icone: "🎲",
             Categoria: "Comercial",
-            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "Oracle" },
+            Tecnologias: new[] { "C#", ".NET 8", "Razor Pages", "SQL" },
             Destaques: new[]
             {
                 "Substituiu planilha Excel por banco",
                 "UPSERT (MERGE) idempotente",
                 "Fonte de dados para outros painéis",
             },
-            CorAccent: "#1E3A8A",
-            Url: "https://metas.condorbrasil.com.br"
+            CorAccent: "#1E3A8A"
         ),
         new(
-            Nome: "CMA ERP",
+            Nome: "MediClinic ERP",
             Subtitulo: "Sistema de gestão para clínicas médicas",
             Descricao: "ERP completo para clínicas: agenda com calendário visual, prontuário eletrônico com " +
                        "busca de CID-10 (600+ códigos), prescrições, exames e atestados com PDF, financeiro e " +
@@ -204,7 +215,7 @@ public static class PortfolioData
                 "3 perfis com dashboards dedicados",
             },
             CorAccent: "#198754",
-            EmProducao: false
+            Repo: GitHub
         ),
         new(
             Nome: "Este Portfólio",
