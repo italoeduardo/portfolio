@@ -25,9 +25,9 @@ public static class PortfolioData
     public static readonly Estatistica[] Estatisticas =
     {
         new("8", "Projetos entregues"),
+        new("6", "Painéis BI → Web"),
         new("5", "Linguagens principais"),
         new("100%", "Full-stack"),
-        new("∞", "Café ☕"),
     };
 
     public static readonly Skill[] Skills =

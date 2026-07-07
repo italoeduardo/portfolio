@@ -4,7 +4,7 @@
 <div class="demo">
     <div class="demo-head">
         <div>
-            <h3 class="demo-titulo">📊 DataVision <span class="demo-tag">demo ao vivo</span></h3>
+            <h3 class="demo-titulo">📊 DataVision <span class="demo-tag">Aplicação interativa</span></h3>
             <p class="demo-sub">
                 Analytics de uma distribuidora fictícia — todos os números são gerados em C#
                 aqui no seu navegador. Troque a região e veja tudo recalcular.
@@ -53,7 +53,7 @@
     <div class="demo-graficos" @key="(3, _regiao)">
         @* ---- Barras: faturamento mensal ---- *@
         <div class="demo-card demo-card-wide">
-            <h4>Faturamento por mês <span class="demo-meta">R$ · rótulos no topo</span></h4>
+            <h4>Faturamento por mês</h4>
             <svg viewBox="0 0 660 260" class="demo-svg" role="img" aria-label="Faturamento por mês">
                 @{
                     var maxBar = (double)_resumo.FaturamentoMensal.Max(b => b.Valor);
@@ -120,7 +120,7 @@
 
         @* ---- Barras horizontais: SLA por região ---- *@
         <div class="demo-card">
-            <h4>SLA por região <span class="demo-meta">meta 95%</span></h4>
+            <h4>SLA por região <span class="demo-alvo">🎯 Meta 95%</span></h4>
             <div class="demo-sla">
                 @foreach (var s in _resumo.SlaPorRegiao)
                 {

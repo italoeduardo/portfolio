@@ -399,10 +399,8 @@ ul { margin: 0; padding: 0; list-style: none; }
 .demo-titulo { font-size: 1.5rem; color: var(--navy); display: flex; align-items: center; gap: 10px; }
 .demo-tag {
     font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1px;
-    color: #fff; background: var(--laranja); padding: 4px 8px; border-radius: 6px;
-    animation: pulse 2s infinite;
+    color: #fff; background: var(--laranja); padding: 4px 9px; border-radius: 6px;
 }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.55} }
 .demo-sub { color: var(--gray-mid); font-size: .92rem; max-width: 460px; margin-top: 4px; }
 
 .demo-regioes { display: flex; flex-wrap: wrap; gap: 6px; }
@@ -460,6 +458,12 @@ ul { margin: 0; padding: 0; list-style: none; }
 .demo-meta, .demo-card h4 .demo-meta {
     font-size: .68rem; font-weight: 600; color: var(--gray-mid);
     background: var(--cream); padding: 2px 8px; border-radius: 6px; text-transform: none; letter-spacing: 0;
+}
+.demo-alvo {
+    font-size: .7rem; font-weight: 700; color: #fff;
+    background: var(--navy); padding: 3px 10px; border-radius: 999px;
+    text-transform: none; letter-spacing: .2px; margin-left: auto;
+    box-shadow: 0 2px 6px rgba(30,58,138,.3);
 }
 
 /* SVG barras */
