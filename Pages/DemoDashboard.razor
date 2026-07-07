@@ -127,7 +127,7 @@
                     <div class="demo-sla-row">
                         <span class="demo-sla-nome">@s.Regiao</span>
                         <div class="demo-sla-track">
-                            <div class="demo-sla-fill @(s.SlaPct < 95 ? "ruim" : "bom")" style="width:@F((s.SlaPct - 80) / 20 * 100)%"></div>
+                            <div class="demo-sla-fill @(s.SlaPct < 95 ? "ruim" : "bom")" style="width:@F(s.SlaPct)%"></div>
                         </div>
                         <span class="demo-sla-val">@s.SlaPct.ToString("N1")%</span>
                     </div>
