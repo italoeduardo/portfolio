@@ -12,20 +12,20 @@ public static class PortfolioData
     public const string Nome = "Italo Eduardo";
     public const string Titulo = "Desenvolvedor Full-Stack & Analista de Dados / BI";
     public const string Email = "italoeduardo368@gmail.com";
-    public const string LinkedIn = "https://www.linkedin.com/";
-    public const string GitHub = "https://github.com/";
+    public const string LinkedIn = "https://www.linkedin.com/in/italo-eduardo-9614b3273";
+    public const string Whatsapp = "https://wa.me/5561982522662";
 
     public const string Resumo =
         "Desenvolvedor full-stack focado em transformar dados operacionais em sistemas web e " +
         "dashboards que substituem planilhas e relatórios de BI por aplicações vivas — com " +
         "autenticação, metas editáveis e análise assistida por IA. Trabalho de ponta a ponta: " +
         "modelagem de dados em SQL, back-end em C#/.NET e Java, front-end responsivo e deploy em " +
-        "produção com Linux, nginx e systemd. Os cases abaixo são apresentados com dados fictícios.";
+        "produção com Linux, nginx e systemd.";
 
     public static readonly Estatistica[] Estatisticas =
     {
-        new("9+", "Projetos entregues"),
-        new("2", "Linguagens principais"),
+        new("8", "Projetos entregues"),
+        new("5", "Linguagens principais"),
         new("100%", "Full-stack"),
         new("∞", "Café ☕"),
     };
@@ -214,8 +214,7 @@ public static class PortfolioData
                 "Geração de PDF (prescrições, atestados, notas)",
                 "3 perfis com dashboards dedicados",
             },
-            CorAccent: "#198754",
-            Repo: GitHub
+            CorAccent: "#198754"
         ),
         new(
             Nome: "Este Portfólio",
@@ -232,8 +231,7 @@ public static class PortfolioData
                 "Deploy automático (CI/CD) no GitHub Pages",
                 "Zero servidor — 100% estático",
             },
-            CorAccent: "#E76B2F",
-            Repo: GitHub
+            CorAccent: "#E76B2F"
         ),
     };
 }

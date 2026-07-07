@@ -19,24 +19,41 @@
     </div>
 
     @* ---- KPIs ---- *@
-    <div class="demo-kpis">
-        @foreach (var k in _resumo.Kpis)
+    <div class="demo-kpis" @key="(1, _regiao)">
+        @for (int i = 0; i < _resumo.Kpis.Length; i++)
         {
-            var bom = k.MaiorEhMelhor ? k.VariacaoPct >= 0 : k.VariacaoPct <= 0;
-            <div class="demo-kpi">
-                <span class="demo-kpi-rot">@k.Rotulo</span>
+            var k = _resumo.Kpis[i];
+            var bom = k.MaiorEhMelhor ? k.Variacao >= 0 : k.Variacao <= 0;
+            <div class="demo-kpi" style="animation-delay:@F(i * 0.05)s">
+                <span class="demo-kpi-rot">@k.Icone @k.Rotulo</span>
                 <span class="demo-kpi-val">@k.Valor</span>
                 <span class="demo-kpi-var @(bom ? "up" : "down")">
-                    @(k.VariacaoPct >= 0 ? "▲" : "▼") @Math.Abs(k.VariacaoPct).ToString("N1")@(k.Rotulo.Contains("SLA") ? " pts" : "%")
+                    <span class="demo-kpi-seta">@(k.Variacao >= 0 ? "▲" : "▼")</span>
+                    @Math.Abs(k.Variacao).ToString("N1")@k.VarSufixo
+                    <span class="demo-kpi-vs">vs S1</span>
                 </span>
             </div>
         }
     </div>
 
-    <div class="demo-graficos">
+    @* ---- Destaques ---- *@
+    <div class="demo-destaques" @key="(2, _regiao)">
+        @foreach (var d in _resumo.Destaques)
+        {
+            <div class="demo-dest">
+                <span class="demo-dest-ico">@d.Icone</span>
+                <div class="demo-dest-txt">
+                    <span class="demo-dest-rot">@d.Rotulo</span>
+                    <span class="demo-dest-val">@d.Valor</span>
+                </div>
+            </div>
+        }
+    </div>
+
+    <div class="demo-graficos" @key="(3, _regiao)">
         @* ---- Barras: faturamento mensal ---- *@
         <div class="demo-card demo-card-wide">
-            <h4>Faturamento por mês</h4>
+            <h4>Faturamento por mês <span class="demo-meta">R$ · rótulos no topo</span></h4>
             <svg viewBox="0 0 660 260" class="demo-svg" role="img" aria-label="Faturamento por mês">
                 @{
                     var maxBar = (double)_resumo.FaturamentoMensal.Max(b => b.Valor);
@@ -55,9 +72,10 @@
                     double x = i * bw + bw * 0.18;
                     double w = bw * 0.64;
                     double y = 220 - h;
-                    <rect x="@F(x)" y="@F(y)" width="@F(w)" height="@F(h)" rx="4" class="demo-bar">
+                    <rect x="@F(x)" y="@F(y)" width="@F(w)" height="@F(h)" rx="4" class="demo-bar" style="animation-delay:@F(i * 0.035)s">
                         <title>@b.Mes: @DemoData.Moeda(b.Valor)</title>
                     </rect>
+                    @SvgText(x + w / 2, y - 6, "demo-vallabel", DemoData.MoedaCurta(b.Valor))
                     @SvgText(x + w / 2, 238, "demo-axis", b.Mes)
                 }
             </svg>
@@ -92,6 +110,7 @@
                         <div class="demo-leg-item">
                             <span class="demo-leg-cor" style="background:@f.Cor"></span>
                             <span class="demo-leg-nome">@f.Categoria</span>
+                            <span class="demo-leg-val">@DemoData.Moeda(f.Valor)</span>
                             <span class="demo-leg-pct">@f.Pct.ToString("N1")%</span>
                         </div>
                     }
@@ -201,8 +220,7 @@
     };
 
     private const string JavaSrc =
-@"// API REST em Java (Spring Boot) que serve o resumo de vendas
-@RestController
+@"@RestController
 @RequestMapping(""/api/vendas"")
 public class VendasController {
 
@@ -236,8 +254,7 @@ public class VendasService {
 }";
 
     private const string CSharpSrc =
-@"// Agregação em C# (.NET) — o mesmo cálculo que roda nesta demo
-public ResumoDashboard Resumo(string regiaoFiltro)
+@"public ResumoDashboard Resumo(string regiaoFiltro)
 {
     var dados = Base()
         .Where(r => regiaoFiltro == ""Todas"" || r.Regiao == regiaoFiltro)
@@ -263,8 +280,7 @@ public ResumoDashboard Resumo(string regiaoFiltro)
 }";
 
     private const string SqlSrc =
-@"-- Consulta SQL de agregação que alimenta o dashboard
-SELECT
+@"SELECT
     v.regiao,
     v.categoria,
     TO_CHAR(v.data_venda, 'YYYY-MM')          AS competencia,
