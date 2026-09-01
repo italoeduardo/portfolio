@@ -8,8 +8,8 @@ const HERO_STACK = [
 ];
 
 const STATS = [
-    { valor: "8", rotulo: "Projetos entregues" },
-    { valor: "6", rotulo: "Painéis BI → Web" },
+    { valor: "18+", rotulo: "Projetos entregues" },
+    { valor: "8", rotulo: "Painéis BI → Web" },
     { valor: "5", rotulo: "Linguagens principais" },
     { valor: "100%", rotulo: "Full-stack" },
 ];
@@ -157,6 +157,154 @@ const PROJETOS = [
             "Fonte de dados para outros painéis",
         ],
         cor: "#1E3A8A"
+    },
+    {
+        nome: "FinPanel · Java Edition",
+        subtitulo: "Porte do FinPanel de .NET para Java",
+        descricao: "Reescrita completa do FinPanel (DRE + Frete) trocando a stack: mesmo banco, mesmas " +
+            "regras de negócio, 100% Java. Exercício deliberado de portabilidade entre linguagens — " +
+            "os totais foram validados centavo a centavo contra a versão original.",
+        icone: "☕", categoria: "Estudo",
+        tecnologias: ["Java 21", "Spring Boot 3", "Thymeleaf", "JDBC", "Virtual Threads", "Caffeine (cache)"],
+        destaques: [
+            "Migração completa .NET → Java validada ao centavo",
+            "Virtual Threads para paralelizar consultas pesadas",
+            "Mesma UI e mesmas regras, stack 100% diferente",
+        ],
+        cor: "#E76B2F"
+    },
+    {
+        nome: "AgendaPro",
+        subtitulo: "Sistema de agendamentos para negócio local (cliente real)",
+        descricao: "Plataforma completa de agendamento online para um negócio de serviços: site com reserva " +
+            "de horários, portal do cliente com histórico e cadastro, e painel administrativo com agenda " +
+            "em timeline, detecção automática de conflito de horário e bloqueios personalizados.",
+        icone: "📅", categoria: "Atendimento",
+        tecnologias: ["Java", "Spring Boot", "Spring Security", "JWT", "JPA", "PostgreSQL", "E-mail transacional"],
+        destaques: [
+            "Detecção automática de conflito de horário",
+            "Multi-seleção de serviços com preço e duração somados",
+            "Autenticação, e-mails transacionais e painel administrativo",
+        ],
+        cor: "#5A3A6F"
+    },
+    {
+        nome: "ClinicSite",
+        subtitulo: "Site institucional para clínica (cliente real)",
+        descricao: "Site institucional completo para uma clínica médica: páginas de serviços, equipe, blog e " +
+            "contato, com PWA instalável, formulário integrado a WhatsApp e otimização de performance " +
+            "(imagens comprimidas em até 95%, cache versionado).",
+        icone: "🩺", categoria: "Institucional",
+        tecnologias: ["HTML5", "CSS3", "JavaScript", "PWA", "Service Worker"],
+        destaques: [
+            "PWA instalável com cache versionado offline",
+            "Performance: ~8,6MB → ~1,5MB de imagens otimizadas",
+            "Blog, depoimentos e formulário de contato integrado",
+        ],
+        cor: "#198754"
+    },
+    {
+        nome: "MeetScribe",
+        subtitulo: "Transcrição de reuniões em tempo real com IA local",
+        descricao: "Aplicativo desktop que transcreve reuniões ao vivo captando microfone e áudio do sistema " +
+            "ao mesmo tempo, rotulando cada locutor. Usa um modelo de IA de reconhecimento de fala rodando " +
+            "100% local (offline, sem enviar áudio pra nuvem), com legenda ao vivo estilo streaming.",
+        icone: "🎙️", categoria: "IA & Produtividade",
+        tecnologias: ["C#", ".NET 8", "IA de reconhecimento de fala (local)", "Processamento de áudio", "WPF"],
+        destaques: [
+            "IA de transcrição rodando 100% offline (privacidade)",
+            "Legenda ao vivo com detecção de fala/pausa (VAD)",
+            "Mistura microfone + áudio do sistema, rotulado por locutor",
+        ],
+        cor: "#0D6EFD"
+    },
+    {
+        nome: "GatePass",
+        subtitulo: "Controle de recepção e ativos com QR/coletores",
+        descricao: "Sistema de portaria para controle de visitantes/prestadores e rastreamento de " +
+            "equipamentos (retirada e devolução), com dashboard de indicadores, exportação para Excel/PDF " +
+            "e autenticação de usuários por perfil.",
+        icone: "🚪", categoria: "Operação",
+        tecnologias: ["Node.js", "Express", "React", "Vite", "Tailwind", "JWT", "SQL"],
+        destaques: [
+            "Rastreamento completo de retirada/devolução de ativos",
+            "Dashboard com gráficos de uso (Recharts)",
+            "Exportação para Excel e PDF",
+        ],
+        cor: "#1E3A8A"
+    },
+    {
+        nome: "TicketFlow",
+        subtitulo: "Central de chamados e suporte",
+        descricao: "Sistema de abertura e acompanhamento de chamados de suporte, com fluxo de status, " +
+            "histórico de interações e painel para a equipe de atendimento gerenciar a fila de tickets.",
+        icone: "🎫", categoria: "Suporte",
+        tecnologias: ["TypeScript", "Next.js", "Prisma", "React", "Tailwind"],
+        destaques: [
+            "Fluxo completo de status do chamado",
+            "Painel de atendimento com fila priorizada",
+            "Stack moderna full TypeScript (front + back)",
+        ],
+        cor: "#E76B2F"
+    },
+    {
+        nome: "StatusHub",
+        subtitulo: "Painel de monitoramento de aplicações",
+        descricao: "Painel central que monitora a saúde de todas as outras aplicações internas em tempo " +
+            "real (health checks periódicos), com login e histórico de disponibilidade — o \"painel dos " +
+            "painéis\" que fecha o ciclo da suíte de sistemas.",
+        icone: "🩻", categoria: "Infraestrutura",
+        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Health checks agendados"],
+        destaques: [
+            "Monitoramento centralizado de múltiplos sistemas",
+            "Health checks agendados automaticamente",
+            "Login e histórico de disponibilidade",
+        ],
+        cor: "#6B7280"
+    },
+    {
+        nome: "PartnerHub",
+        subtitulo: "Gestão de clientes por rede de parceiros",
+        descricao: "Sistema de CRM simplificado para gerenciar clientes segmentados por rede/parceiro " +
+            "comercial, com cadastro, histórico de relacionamento e indicadores por rede.",
+        icone: "🤝", categoria: "Comercial",
+        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "SQL"],
+        destaques: [
+            "Segmentação de clientes por rede comercial",
+            "Indicadores por parceiro",
+            "Cadastro e histórico de relacionamento",
+        ],
+        cor: "#1E3A8A"
+    },
+    {
+        nome: "StockGuard",
+        subtitulo: "Pedidos atrasados e estoque bloqueado",
+        descricao: "Painel com dois indicadores operacionais críticos: pedidos em atraso e valor de estoque " +
+            "bloqueado (avaria), com snapshot diário automático para permitir análise histórica de " +
+            "tendência ao longo do tempo.",
+        icone: "📉", categoria: "Logística",
+        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "Job agendado"],
+        destaques: [
+            "Snapshot diário automático para série histórica",
+            "Dois indicadores operacionais críticos num só painel",
+            "Job agendado sem intervenção manual",
+        ],
+        cor: "#DC3545"
+    },
+    {
+        nome: "ExpiryWatch",
+        subtitulo: "Alertas de produtos a vencer",
+        descricao: "Dashboard que substitui uma planilha manual de controle de validade: KPIs por faixa de " +
+            "vencimento, exportação para Excel, análise automática por IA e gestão de usuários por perfil " +
+            "(master/usuário).",
+        icone: "⏰", categoria: "Estoque",
+        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "IA generativa", "Chart.js"],
+        destaques: [
+            "KPIs por faixa de vencimento com auto-refresh",
+            "Análise automática com IA generativa",
+            "Substituiu processo 100% manual em planilha",
+        ],
+        cor: "#FFC107"
     },
     {
         nome: "MediClinic ERP",
