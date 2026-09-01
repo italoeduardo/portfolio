@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Italo Eduardo · Desenvolvedor Java & Analista de Dados/BI</title>
+    <meta name="description" content="Portfólio de Italo Eduardo — desenvolvedor Java full-stack com Spring Boot, JPA e SQL. Sistemas web e dashboards que substituem planilhas e Power BI." />
+    <meta name="author" content="Italo Eduardo" />
+
+    <!-- Open Graph (LinkedIn / WhatsApp preview) -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="Italo Eduardo · Desenvolvedor Java & Analista de Dados/BI" />
+    <meta property="og:description" content="Sistemas web e dashboards em Java (Spring Boot), JPA e SQL. Suíte completa de painéis logísticos, comerciais e financeiros." />
+
+    <link rel="stylesheet" href="css/app.css" />
+    <link rel="icon" type="image/png" href="favicon.png" />
+</head>
+
+<body>
+    <!-- Splash de carregamento -->
+    <div class="loading-condor" id="loader">
+        <div class="spinner"></div>
+        <p>Carregando portfólio…</p>
+    </div>
+
+    <div class="page">
+        <!-- NAVBAR -->
+        <nav class="topbar" id="topbar">
+            <a href="#topo" class="brand">
+                <span class="brand-mark">IE</span>
+                <span class="brand-name">Italo Eduardo</span>
+            </a>
+            <button class="nav-toggle" id="navToggle" aria-label="Menu">
+                <span></span><span></span><span></span>
+            </button>
+            <div class="nav-links" id="navLinks">
+                <a href="#sobre">Sobre</a>
+                <a href="#skills">Skills</a>
+                <a href="#projetos">Projetos</a>
+                <a href="#demo">Demo</a>
+                <a href="#contato" class="nav-cta">Contato</a>
+            </div>
+        </nav>
+
+        <main>
+            <!-- HERO -->
+            <section class="hero" id="topo">
+                <div class="hero-bg"></div>
+                <div class="hero-inner">
+                    <p class="hero-hello">Olá, eu sou o</p>
+                    <h1 class="hero-nome">Italo Eduardo</h1>
+                    <h2 class="hero-titulo">Desenvolvedor Java Full-Stack &amp; Analista de Dados / BI</h2>
+                    <p class="hero-tagline">
+                        Transformo dados operacionais em <strong>sistemas web</strong> e
+                        <strong>dashboards</strong> que substituem planilhas e relatórios de BI —
+                        do banco de dados ao deploy em produção.
+                    </p>
+                    <div class="hero-cta">
+                        <a href="#projetos" class="btn btn-primary">Ver projetos</a>
+                        <a href="#contato" class="btn btn-ghost">Falar comigo</a>
+                    </div>
+                    <div class="hero-stack" id="heroStack"></div>
+                </div>
+                <a href="#sobre" class="scroll-hint" aria-label="Rolar">▾</a>
+            </section>
+
+            <!-- SOBRE -->
+            <section class="secao secao-clara" id="sobre">
+                <div class="container">
+                    <span class="secao-eyebrow">Quem sou</span>
+                    <h2 class="secao-titulo">Sobre mim</h2>
+                    <div class="sobre-grid">
+                        <p class="sobre-texto">
+                            Desenvolvedor full-stack focado em transformar dados operacionais em sistemas web
+                            e dashboards que substituem planilhas e relatórios de BI por aplicações vivas — com
+                            autenticação, metas editáveis e análise assistida por IA. Trabalho de ponta a ponta:
+                            modelagem de dados em SQL, back-end em <strong>Java com Spring Boot</strong>, front-end
+                            responsivo e deploy em produção com Linux, nginx e systemd.
+                        </p>
+                        <div class="stats" id="stats"></div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- SKILLS -->
+            <section class="secao secao-navy" id="skills">
+                <div class="container">
+                    <span class="secao-eyebrow">O que eu uso</span>
+                    <h2 class="secao-titulo secao-titulo-claro">Competências técnicas</h2>
+                    <div class="skills-grid" id="skillsGrid"></div>
+                </div>
+            </section>
+
+            <!-- PROJETOS -->
+            <section class="secao secao-clara" id="projetos">
+                <div class="container">
+                    <span class="secao-eyebrow">Portfólio</span>
+                    <h2 class="secao-titulo">Projetos em destaque</h2>
+                    <div class="filtros" id="filtros"></div>
+                    <div class="projetos-grid" id="projetosGrid"></div>
+                </div>
+            </section>
+
+            <!-- DEMO -->
+            <section class="secao secao-clara secao-demo" id="demo">
+                <div class="container">
+                    <span class="secao-eyebrow">Aplicação ao vivo</span>
+                    <h2 class="secao-titulo">Demonstração de painel com dados fictícios</h2>
+                    <p class="demo-intro">
+                        Uma aplicação interativa rodando aqui mesmo — os dados são processados no
+                        navegador, os gráficos são <strong>SVG</strong>, e o showcase do back-end mostra
+                        <strong>Java (Spring Boot)</strong>, <strong>JPA</strong> e <strong>SQL</strong>. Tudo com dados fictícios.
+                    </p>
+                    <div id="demoRoot"></div>
+                </div>
+            </section>
+
+            <!-- CONTATO -->
+            <section class="secao secao-navy secao-contato" id="contato">
+                <div class="container container-estreito">
+                    <span class="secao-eyebrow">Vamos conversar</span>
+                    <h2 class="secao-titulo secao-titulo-claro">Bora construir algo juntos?</h2>
+                    <p class="contato-texto">
+                        Estou aberto a oportunidades e projetos. Se você curtiu o que viu,
+                        me chama — respondo rápido.
+                    </p>
+                    <div class="contato-links">
+                        <a href="mailto:italoeduardo368@gmail.com" class="contato-btn">✉️ italoeduardo368@gmail.com</a>
+                        <a href="https://www.linkedin.com/in/italo-eduardo-9614b3273" target="_blank" rel="noopener" class="contato-btn">in LinkedIn</a>
+                        <a href="https://wa.me/5561982522662" target="_blank" rel="noopener" class="contato-btn">💬 WhatsApp</a>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer class="rodape">
+            <p>© <span id="ano"></span> Italo Eduardo · Desenvolvedor Java &amp; Analista de Dados</p>
+        </footer>
+    </div>
+
+    <script src="js/data.js"></script>
+    <script src="js/demo.js"></script>
+    <script src="js/portfolio.js"></script>
+</body>
+
+</html>
