@@ -56,17 +56,17 @@ const PROJETOS = [
     {
         nome: "SLA Tracker",
         subtitulo: "OTIF — On Time In Full",
-        descricao: "Sistema que mede o percentual de pedidos entregues no prazo E sem corte, cruzando dados " +
-            "do ERP com eventos reais de entrega. Régua de prazo por estado (dias úteis, ignorando feriados), " +
-            "visão gerencial e visão operacional, com drill-down explicando por que cada pedido falhou.",
+        descricao: "Painel que mede o percentual de pedidos entregues no prazo E sem corte. Prazo em dias " +
+            "úteis por região, com calendário de feriados nacionais (inclusive os móveis, calculados pela " +
+            "Páscoa), visão de pedidos em risco e drill-down explicando por que cada pedido falhou.",
         icone: "🎯", categoria: "Logística",
-        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "Oracle", "Chart.js"],
+        tecnologias: ["Java 21", "Spring Boot", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5", "Docker"],
         destaques: [
-            "Cálculo de prazo por estado só em dias úteis",
+            "Calendário de dias úteis com feriados móveis",
             "Duas visões: realizado e em risco",
-            "Drill-down do motivo da falha (atraso × corte)",
+            "25 testes automatizados + CI no GitHub Actions",
         ],
-        cor: "#1E3A8A"
+        cor: "#1E3A8A", repo: "https://github.com/italoeduardo/sla-tracker"
     },
     {
         nome: "LogiBoard",
@@ -204,19 +204,19 @@ const PROJETOS = [
         cor: "#198754"
     },
     {
-        nome: "MeetScribe",
-        subtitulo: "Transcrição de reuniões em tempo real com IA local",
+        nome: "Transcritor de Reunião",
+        subtitulo: "Transcrição de reuniões em tempo real com IA",
         descricao: "Aplicativo desktop que transcreve reuniões ao vivo captando microfone e áudio do sistema " +
-            "ao mesmo tempo, rotulando cada locutor. Usa um modelo de IA de reconhecimento de fala rodando " +
-            "100% local (offline, sem enviar áudio pra nuvem), com legenda ao vivo estilo streaming.",
+            "ao mesmo tempo, rotulando cada locutor. Detecção de fala própria (VAD) separa os trechos e um " +
+            "modelo Whisper transcreve, com legenda ao vivo estilo streaming.",
         icone: "🎙️", categoria: "IA & Produtividade",
-        tecnologias: ["C#", ".NET 8", "IA de reconhecimento de fala (local)", "Processamento de áudio", "WPF"],
+        tecnologias: ["C#", ".NET 8", "WPF", "NAudio", "Whisper (IA de fala)"],
         destaques: [
-            "IA de transcrição rodando 100% offline (privacidade)",
             "Legenda ao vivo com detecção de fala/pausa (VAD)",
             "Mistura microfone + áudio do sistema, rotulado por locutor",
+            "Fila com descarte de trechos obsoletos para baixa latência",
         ],
-        cor: "#0D6EFD"
+        cor: "#0D6EFD", repo: "https://github.com/italoeduardo/transcritor-reuniao"
     },
     {
         nome: "GatePass",
@@ -313,12 +313,12 @@ const PROJETOS = [
             "CID-10 (600+ códigos), prescrições, exames e atestados com PDF, financeiro e relatórios. " +
             "Três perfis de acesso (Admin, Médico, Staff) com dashboards dedicados.",
         icone: "🏥", categoria: "Full-stack",
-        tecnologias: ["Java", "Spring Boot", "Spring Security", "Thymeleaf", "JPA / Hibernate", "PostgreSQL", "iText (PDF)"],
+        tecnologias: ["TypeScript", "React", "Node.js", "Express", "Prisma", "SQLite", "Tailwind", "Docker"],
         destaques: [
             "Prontuário com CID-10 (600+ códigos)",
             "Geração de PDF (prescrições, atestados, notas)",
-            "3 perfis com Spring Security",
+            "3 perfis com autenticação JWT",
         ],
-        cor: "#198754"
+        cor: "#198754", repo: "https://github.com/italoeduardo/mediclinic-erp"
     },
 ];
