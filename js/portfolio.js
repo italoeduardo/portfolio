@@ -181,6 +181,7 @@
                 <h3>${esc(p.nome)}</h3>
                 <p>${esc(p.descricao)}</p>
                 <div class="tags">${p.tecnologias.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+                ${p.link ? `<a class="projeto-link" href="${p.link}" target="_blank" rel="noopener">Ver no ar ↗</a>` : ""}
             </article>`).join("");
     }
 

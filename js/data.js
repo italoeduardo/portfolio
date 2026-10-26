@@ -205,10 +205,10 @@ const PROJETOS = [
         tecnologias: ["Node.js", "Express", "React", "Tailwind", "JWT"],
     },
     {
-        nome: "TicketFlow", icone: "🎫", categoria: "Suporte",
-        descricao: "Central de chamados com fluxo de status, histórico de interações e fila priorizada para " +
-            "a equipe de atendimento.",
-        tecnologias: ["TypeScript", "Next.js", "Prisma", "React"],
+        nome: "Gestão de Chamados", icone: "🎫", categoria: "Suporte",
+        descricao: "Central de chamados com quadro kanban de arrastar e soltar, fluxo de status, histórico " +
+            "de interações e login por perfil.",
+        tecnologias: ["TypeScript", "Next.js", "Prisma", "NextAuth", "React"],
     },
     {
         nome: "StatusHub", icone: "🩺", categoria: "Infraestrutura",
@@ -223,10 +223,17 @@ const PROJETOS = [
         tecnologias: ["Java", "Spring Boot", "JPA", "SQL"],
     },
     {
-        nome: "AgendaPro", icone: "📅", categoria: "Atendimento",
-        descricao: "Agendamento online para negócio de serviços: reservas, portal do cliente e painel com " +
-            "agenda em linha do tempo e detecção de conflito de horário.",
-        tecnologias: ["Spring Boot", "Spring Security", "JWT", "PostgreSQL"],
+        nome: "Studio Felipe Serra", icone: "💈", categoria: "Cliente",
+        descricao: "Site e sistema de agendamento de uma barbearia em Brasília: reservas online, portal do " +
+            "cliente, painel do barbeiro com agenda do dia e confirmação por e-mail.",
+        tecnologias: [".NET 8", "ASP.NET Core", "EF Core", "PostgreSQL", "JWT", "Docker"],
+        link: "https://studiofelipeserra.com",
+    },
+    {
+        nome: "Imperdata", icone: "⛽", categoria: "Cliente",
+        descricao: "Site institucional de uma empresa de tecnologia para postos de combustíveis, com o " +
+            "conceito de “planta do posto” interativa e página de trabalhe conosco.",
+        tecnologias: ["HTML5", "CSS3", "JavaScript"],
     },
     {
         nome: "ClinicSite", icone: "🌐", categoria: "Institucional",
