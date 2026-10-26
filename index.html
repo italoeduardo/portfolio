@@ -20,7 +20,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
     <link rel="stylesheet" href="css/site.css" />
-    <link rel="stylesheet" href="css/demo.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
 </head>
 
@@ -54,7 +53,7 @@
                 <p class="abertura-sub">
                     Sou <b>Italo Eduardo</b>, desenvolvedor <b>Java full-stack</b> e analista de dados.
                     Troco planilhas e relatórios de BI por aplicações com regras de negócio, testes e deploy.
-                    Assista aos sistemas abaixo — tudo com dados fictícios.
+                    Assista aos sistemas abaixo e teste vários deles ao vivo — tudo com dados fictícios.
                 </p>
                 <div class="abertura-acoes">
                     <a href="#sistemas" class="botao botao-principal">Ver os sistemas</a>
@@ -90,15 +89,28 @@
             <div id="casos"></div>
         </section>
 
-        <!-- ===== DEMO AO VIVO ===== -->
+        <!-- ===== MEXA VOCÊ MESMO ===== -->
         <section class="secao" id="demo">
             <div class="secao-cabeca revelar">
                 <span class="secao-rotulo">Ao vivo</span>
                 <h2>Mexa você mesmo</h2>
-                <p>Um painel de análise rodando aqui na página: troque a região e veja KPIs, gráficos e o insight
-                    se recalcularem. Embaixo, o back-end em Java (Spring Boot), JPA e SQL que serviria esses dados.</p>
+                <p>Escolha um sistema e use de verdade: troque filtros, abra detalhes, arraste chamados no kanban,
+                    marque horários, edite metas. Tudo roda aqui no seu navegador, com as mesmas regras e os mesmos
+                    dados fictícios do código original. O que você mudar fica só com você.</p>
             </div>
-            <div class="demo-moldura revelar" id="demoRoot"></div>
+            <div class="laboratorio revelar" id="laboratorio">
+                <div class="lab-abas" id="labAbas" role="tablist" aria-label="Escolher sistema para testar"></div>
+                <div class="janela lab-janela">
+                    <div class="janela-barra">
+                        <span class="pontos"><i></i><i></i><i></i></span>
+                        <span class="janela-url" id="labUrl"></span>
+                        <a class="lab-acao" id="labCodigo" target="_blank" rel="noopener" title="Ver o código no GitHub">Código ↗</a>
+                        <a class="lab-acao" id="labTela" target="_blank" rel="noopener" title="Abrir em tela cheia">Tela cheia ↗</a>
+                    </div>
+                    <div class="lab-tela"><iframe id="labFrame" title="Demonstração do sistema" loading="lazy"></iframe></div>
+                </div>
+                <p class="lab-dica" id="labDica"></p>
+            </div>
         </section>
 
         <!-- ===== OUTROS PROJETOS ===== -->
@@ -143,7 +155,6 @@
     </footer>
 
     <script src="js/data.js"></script>
-    <script src="js/demo.js"></script>
     <script src="js/vitrine.js"></script>
     <script src="js/portfolio.js"></script>
 </body>

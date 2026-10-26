@@ -103,7 +103,8 @@
                     <div class="caso-numeros">${s.numeros.map((n) => `<div><b>${esc(n.v)}</b><span>${esc(n.r)}</span></div>`).join("")}</div>
                     <div class="tags">${s.stack.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
                     <div class="caso-acoes">
-                        <a class="botao botao-principal" href="${s.repo}" target="_blank" rel="noopener">Ver o código ↗</a>
+                        ${LAB[s.id] ? `<button class="botao botao-principal" data-testar="${s.id}">Testar ao vivo ▶</button>` : ""}
+                        <a class="botao ${LAB[s.id] ? "botao-vazado" : "botao-principal"}" href="${s.repo}" target="_blank" rel="noopener">Ver o código ↗</a>
                         ${s.link ? `<a class="botao botao-vazado" href="${s.link}" target="_blank" rel="noopener">Ver no ar ↗</a>` : ""}
                         <button class="botao botao-vazado" data-proximo="${i}">${i < VITRINE.length - 1 ? "Próximo sistema ↓" : "Testar ao vivo ↓"}</button>
                     </div>
@@ -144,6 +145,8 @@
             caso.addEventListener("click", (e) => {
                 const m = e.target.closest(".miniatura");
                 if (m) players[s.id].ir(+m.dataset.k);
+                const tst = e.target.closest("[data-testar]");
+                if (tst) testar(tst.dataset.testar);
                 const p = e.target.closest("[data-proximo]");
                 if (p) {
                     const prox = VITRINE[+p.dataset.proximo + 1];
@@ -173,6 +176,46 @@
                 requestAnimationFrame(anima);
             });
         }, { threshold: 0.5 }).observe(ul);
+    }
+
+    // ---------- laboratório: os sistemas rodando no navegador ----------
+    let abrirNoLab = () => {};
+    function montarLaboratorio() {
+        const ids = Object.keys(LAB).filter((id) => VITRINE.some((v) => v.id === id));
+        const abas = $("#labAbas"), frame = $("#labFrame");
+        abas.innerHTML = ids.map((id) => {
+            const s = VITRINE.find((v) => v.id === id);
+            return `<button class="chip" role="tab" data-lab="${id}" style="--cor:${s.cor}"><span class="chip-ponto"></span>${esc(LAB[id].rotulo || s.nome)}</button>`;
+        }).join("");
+        let atual = null, carregar = false;
+        abrirNoLab = (id) => {
+            const s = VITRINE.find((v) => v.id === id), cfg = LAB[id];
+            if (!s || !cfg) return;
+            atual = id;
+            $("#laboratorio").style.setProperty("--cor", s.cor);
+            $$(".chip", abas).forEach((c) => { const on = c.dataset.lab === id; c.classList.toggle("ativo", on); c.setAttribute("aria-selected", on); });
+            const url = `demos/${id}/index.html`;
+            $("#labUrl").textContent = s.url;
+            $("#labCodigo").href = s.repo;
+            $("#labTela").href = url;
+            $("#labDica").innerHTML = `<b>${esc(s.nome)}</b> · ${esc(cfg.dica)}${cfg.login ? `<br><span>Acesso de demonstração: ${esc(cfg.login)}</span>` : ""}`;
+            if (carregar) frame.src = url;
+        };
+        abas.addEventListener("click", (e) => { const c = e.target.closest("[data-lab]"); if (c) abrirNoLab(c.dataset.lab); });
+        abrirNoLab(ids[0]);
+        // o iframe só carrega quando a seção aparece (não pesa o início da página)
+        new IntersectionObserver((ents, obs) => {
+            if (!ents[0].isIntersecting) return;
+            obs.disconnect();
+            carregar = true;
+            frame.src = `demos/${atual}/index.html`;
+        }, { rootMargin: "300px" }).observe(frame);
+    }
+
+    /** "Testar ao vivo" de um bloco: rola até o laboratório já com o sistema escolhido. */
+    function testar(id) {
+        abrirNoLab(id);
+        irPara("demo");
     }
 
     function montarProjetos() {
@@ -269,7 +312,7 @@
         montarContato();
         ligarNavegacao();
         ligarRevelar();
-        if (window.DemoApp) DemoApp.init("#demoRoot");
+        montarLaboratorio();
         // link direto para um sistema: #sistema-otif
         if (location.hash.startsWith("#sistema-")) setTimeout(() => abrirCaso(location.hash.slice(9)), 300);
     });

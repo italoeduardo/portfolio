@@ -306,3 +306,15 @@ const SKILLS = [
     { nome: "Qualidade", icone: "🧪", itens: ["JUnit 5", "MockMvc", "Testes de regra de negócio", "Clean Code"] },
     { nome: "DevOps", icone: "🚀", itens: ["Docker", "GitHub Actions", "Linux", "nginx", "systemd", "Git"] },
 ];
+
+// ---------- Laboratório: sistemas que rodam no navegador (pasta demos/) ----------
+// dica: o que fazer primeiro; login: credenciais de demonstração (quando há)
+const LAB = {
+    "otif": { dica: "Clique numa transportadora ou UF para filtrar e abra um pedido para ver o diagnóstico." },
+    "gerot": { dica: "Troque o CD e o período. Em Metas, mude uma meta e veja o painel reagir.", login: "gestor / gestor123 (só para editar metas)" },
+    "painel-de-despesas": { dica: "Alterne Competência × Caixa e clique em qualquer despesa para chegar aos lançamentos." },
+    "produtividade": { dica: "Filtre por unidade, turno e setor, ou clique num setor da tabela." },
+    "gestao-de-chamados": { dica: "Entre como Gestor, Atendente ou Solicitante, arraste chamados entre as colunas e responda um chamado.", login: "botões de perfil na tela de login (senha 123456)" },
+    "mediclinic": { dica: "Agenda, pacientes, prontuário com CID-10, receitas em PDF e financeiro.", login: "admin@mediclinic.dev · medico@mediclinic.dev · recepcao@mediclinic.dev (senha 123456)" },
+    "studio-felipe-serra": { dica: "Painel do barbeiro com agenda fictícia: marque, confirme, bloqueie horários.", login: "senha demo", rotulo: "Studio Felipe Serra · painel" },
+};

@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0" />
+<title>Painel do Barbeiro · Studio Felipe Serra</title>
+<meta name="theme-color" content="#0a0a0a" />
+<meta name="robots" content="noindex, nofollow" />
+<link rel="icon" href="assets/img/favicon.png" type="image/png" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=Oswald:wght@300;400;500;600;700&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet" />
+<link rel="stylesheet" href="css/painel.css?v=13" />
+</head>
+<body>
+
+<!-- ===== LOGIN ===== -->
+<div class="login" id="login">
+  <form class="login__card" id="loginForm">
+    <div class="login__pole barber-pole">
+      <div class="barber-pole__cap"></div>
+      <div class="barber-pole__glass"><div class="barber-pole__stripes"></div></div>
+      <div class="barber-pole__cap barber-pole__cap--bottom"></div>
+    </div>
+    <img src="assets/img/logo-white.png" alt="Studio Felipe Serra" class="login__logo" />
+    <h1>Painel do Barbeiro</h1>
+    <p class="login__sub">Área restrita — acesso da equipe</p>
+    <div class="field">
+      <input type="password" id="pin" autocomplete="current-password" placeholder="Senha de acesso" required />
+    </div>
+    <button type="submit" class="btn btn--gold btn--block">Entrar</button>
+    <p class="login__err" id="loginErr"></p>
+  </form>
+</div>
+
+<!-- ===== APP ===== -->
+<div class="app" id="app" hidden>
+
+  <!-- Top bar -->
+  <header class="top">
+    <div class="top__brand">
+      <img src="assets/img/logo-white.png" alt="Studio Felipe Serra" />
+      <span class="top__tag">Painel</span>
+    </div>
+    <div class="top__right">
+      <span class="clock" id="clock">--:--</span>
+      <div class="bell-wrap">
+        <button class="icon-btn" id="bellBtn" title="Notificações" aria-label="Notificações">
+          <svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9a6 6 0 0 1 12 0c0 6 2.5 7.5 2.5 7.5h-17S6 15 6 9z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="bell-badge" id="bellBadge" hidden>0</span>
+        </button>
+        <div class="bell-panel" id="bellPanel">
+          <div class="bell-panel__head">
+            <h3>Notificações</h3>
+          </div>
+          <div class="bell-panel__list" id="bellList">
+            <p class="bell-empty">Carregando…</p>
+          </div>
+        </div>
+      </div>
+      <button class="icon-btn" id="logout" title="Sair" aria-label="Sair"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v9"/><path d="M6.3 6.7a8 8 0 1 0 11.4 0"/></svg></button>
+    </div>
+  </header>
+
+  <!-- Controls -->
+  <div class="controls">
+    <div class="controls__date">
+      <button class="nav-btn" id="prevDay" aria-label="Dia anterior">‹</button>
+      <button class="today-btn" id="todayBtn">Hoje</button>
+      <button class="nav-btn" id="nextDay" aria-label="Próximo dia">›</button>
+      <label class="date-wrap">
+        <input type="date" id="datePicker" />
+        <span class="date-label" id="dateLabel">—</span>
+      </label>
+    </div>
+    <div class="controls__actions">
+      <div class="search">
+        <span><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg></span>
+        <input type="text" id="search" placeholder="Buscar cliente…" />
+      </div>
+      <select id="statusFilter" class="select">
+        <option value="">Todos os status</option>
+        <option value="pendente">Pendentes</option>
+        <option value="confirmado">Confirmados</option>
+        <option value="concluido">Concluídos</option>
+        <option value="cancelado">Cancelados</option>
+        <option value="falta">Faltas</option>
+      </select>
+      <button class="btn btn--ghost" id="blockBtn">＋ Bloqueio</button>
+      <button class="btn btn--gold" id="newBtn">＋ Agendamento</button>
+    </div>
+  </div>
+
+  <!-- Week strip -->
+  <div class="week" id="weekStrip"></div>
+
+  <!-- Workspace: resumo (lateral no desktop) + agenda -->
+  <div class="workspace">
+    <aside class="sidebar">
+      <div class="stats" id="dayStats"></div>
+
+      <div class="tomorrow-card">
+        <div class="tomorrow-card__head">
+          <h3>Amanhã <span id="tomorrowDate" class="tomorrow-card__date"></span></h3>
+        </div>
+        <div class="tomorrow-card__list" id="tomorrowList">
+          <p class="tomorrow-empty">Carregando…</p>
+        </div>
+      </div>
+    </aside>
+
+    <main class="agenda">
+      <div class="agenda__head">
+        <h2 id="agendaTitle">Agenda</h2>
+        <span class="agenda__hint">Toque num horário livre para agendar</span>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="empty" id="emptyState" hidden>
+        <div class="empty__icon"><svg class="ico" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="6" cy="6" r="3"/><circle cx="6" cy="18" r="3"/><path d="M20 4 8.12 15.88M14.47 14.48 20 20M8.12 8.12 12 12"/></svg></div>
+        <p>Nenhum agendamento para este dia.</p>
+        <button class="btn btn--gold" id="emptyNew">Criar agendamento</button>
+      </div>
+    </main>
+  </div>
+</div>
+
+<!-- ===== MODAL: detalhe do agendamento ===== -->
+<div class="modal" id="apptModal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <button class="modal__x" data-close aria-label="Fechar">&times;</button>
+    <div class="modal__body" id="apptBody"></div>
+  </div>
+</div>
+
+<!-- ===== MODAL: novo / editar agendamento ===== -->
+<div class="modal" id="formModal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <button class="modal__x" data-close aria-label="Fechar">&times;</button>
+    <h3 class="modal__title" id="formTitle">Novo agendamento</h3>
+    <form id="apptForm" class="form">
+      <input type="hidden" id="f_id" />
+      <div class="form__row">
+        <label class="field"><span>Cliente *</span>
+          <input type="text" id="f_name" required placeholder="Nome do cliente" />
+        </label>
+        <label class="field"><span>WhatsApp / Telefone</span>
+          <input type="tel" id="f_phone" inputmode="numeric" placeholder="(61) 90000-0000" />
+        </label>
+      </div>
+      <div class="form__row">
+        <label class="field"><span>E-mail</span>
+          <input type="email" id="f_email" placeholder="opcional — vincula à conta do cliente" />
+        </label>
+        <label class="field"><span>Valor (R$)</span>
+          <input type="number" id="f_price" min="0" step="1" placeholder="opcional" />
+        </label>
+      </div>
+      <label class="field"><span>Procedimentos * <small style="text-transform:none;letter-spacing:0;color:var(--muted-2)">(pode escolher mais de um)</small></span>
+        <div class="f-services" id="f_services"></div>
+        <div class="f-services__total" id="f_servicesTotal" hidden></div>
+      </label>
+      <div class="form__row">
+        <label class="field"><span>Data *</span>
+          <input type="date" id="f_date" required />
+        </label>
+        <label class="field"><span>Horário *</span>
+          <select id="f_time" required></select>
+        </label>
+      </div>
+      <label class="field"><span>Observações</span>
+        <textarea id="f_notes" rows="2" placeholder="Ex.: cliente prefere máquina 2…"></textarea>
+      </label>
+      <p class="form__warn" id="formWarn" hidden></p>
+      <div class="form__foot">
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn--gold">Salvar</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MODAL: bloqueio ===== -->
+<div class="modal" id="blockModal" aria-hidden="true">
+  <div class="modal__box" role="dialog" aria-modal="true">
+    <button class="modal__x" data-close aria-label="Fechar">&times;</button>
+    <h3 class="modal__title">Bloquear horário</h3>
+    <form id="blockForm" class="form">
+      <label class="field"><span>Data *</span>
+        <input type="date" id="b_date" required />
+      </label>
+      <div class="form__row">
+        <label class="field"><span>Início *</span>
+          <select id="b_start" required></select>
+        </label>
+        <label class="field"><span>Duração *</span>
+          <select id="b_dur" required>
+            <option value="30">30 min</option>
+            <option value="60">1 hora</option>
+            <option value="90">1h30</option>
+            <option value="120">2 horas</option>
+            <option value="180">3 horas</option>
+            <option value="600">Dia todo</option>
+            <option value="custom">Personalizado…</option>
+          </select>
+        </label>
+      </div>
+      <label class="field" id="b_customWrap" hidden><span>Até que horas *</span>
+        <input type="time" id="b_customEnd" step="900" />
+      </label>
+      <label class="field"><span>Motivo</span>
+        <input type="text" id="b_reason" placeholder="Ex.: almoço, compromisso…" />
+      </label>
+      <p class="form__warn" id="blockWarn" hidden></p>
+      <div class="form__foot">
+        <button type="button" class="btn btn--ghost" data-close>Cancelar</button>
+        <button type="submit" class="btn btn--gold">Bloquear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ===== MODAL: confirmação genérica ===== -->
+<div class="modal" id="confirmModal" aria-hidden="true">
+  <div class="modal__box modal__box--sm" role="dialog" aria-modal="true">
+    <h3 class="modal__title" id="confirmTitle">Confirmar</h3>
+    <p class="confirm__msg" id="confirmMsg"></p>
+    <label class="field" id="confirmReasonWrap" hidden><span>Motivo (opcional)</span>
+      <input type="text" id="confirmReason" placeholder="Motivo…" />
+    </label>
+    <div class="form__foot">
+      <button type="button" class="btn btn--ghost" id="confirmNo">Voltar</button>
+      <button type="button" class="btn btn--danger" id="confirmYes">Confirmar</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast"></div>
+
+<script src="../comum/base.js"></script>
+<script src="mock-api.js"></script>
+<script src="js/painel.js?v=15"></script>
+</body>
+</html>

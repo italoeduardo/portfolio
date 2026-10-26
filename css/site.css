@@ -272,9 +272,20 @@ button { font: inherit; color: inherit; }
 .tr-quem:empty { display: none; }
 .tr-cursor { width: 2px; height: 1.1em; background: #fbbf24; animation: piscar .8s infinite; }
 
-/* ---------- demo ao vivo ---------- */
-.demo-moldura { border-radius: 22px; padding: 6px; background: var(--gradiente); box-shadow: 0 40px 80px -30px rgba(106,168,255,.45); }
-.demo-moldura .demo { border: 0; border-radius: 17px; }
+/* ---------- laboratório: sistemas rodando no navegador ---------- */
+.laboratorio { --cor: var(--violeta); }
+.lab-abas { display: flex; flex-wrap: wrap; gap: .5rem; margin-bottom: 1rem; }
+.lab-janela { position: relative; box-shadow: 0 40px 90px -30px color-mix(in srgb, var(--cor) 55%, transparent), 0 0 0 1px rgba(255,255,255,.03) inset; transition: box-shadow .6s; }
+.lab-acao {
+    flex-shrink: 0; font-size: .78rem; font-weight: 600; color: var(--texto-2); text-decoration: none;
+    padding: .2rem .65rem; border-radius: 7px; border: 1px solid var(--borda); background: rgba(255,255,255,.04);
+}
+.lab-acao:hover { color: var(--texto); border-color: var(--borda-forte); }
+.lab-tela { position: relative; height: min(78vh, 820px); min-height: 520px; background: #f4f6fa; }
+.lab-tela iframe { position: absolute; inset: 0; width: 100%; height: 100%; border: 0; background: #f4f6fa; }
+.lab-dica { margin-top: .9rem; color: var(--texto-2); font-size: .92rem; line-height: 1.55; }
+.lab-dica b { color: var(--texto); }
+.lab-dica span { color: var(--texto-3); font-size: .86rem; }
 
 /* ---------- outros projetos ---------- */
 .projetos { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
@@ -348,6 +359,8 @@ button { font: inherit; color: inherit; }
     .miniatura { width: 70px; height: 44px; }
     .tr-fontes { grid-template-columns: 1fr; }
     .tr-fonte:last-child { display: none; }
+    .lab-tela { height: 72vh; min-height: 480px; }
+    .janela-barra .lab-acao#labCodigo { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
