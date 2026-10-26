@@ -288,7 +288,8 @@ button { font: inherit; color: inherit; }
 .projeto-icone { font-size: 1.6rem; }
 .projeto h3 { font-size: 1.2rem; }
 .projeto p { color: var(--texto-2); font-size: .92rem; flex: 1; }
-.projeto-link { align-self: flex-start; font-size: .88rem; font-weight: 600; color: var(--ciano); text-decoration: none; }
+.projeto-links { display: flex; gap: 1.1rem; }
+.projeto-link { font-size: .88rem; font-weight: 600; color: var(--ciano); text-decoration: none; }
 .projeto-link:hover { text-decoration: underline; }
 
 /* ---------- habilidades ---------- */

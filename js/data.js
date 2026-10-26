@@ -16,7 +16,7 @@ const STATS = [
     { valor: 18, sufixo: "+", rotulo: "sistemas entregues" },
     { valor: 8, sufixo: "", rotulo: "painéis de BI viraram apps" },
     { valor: 72, sufixo: "", rotulo: "testes automatizados públicos" },
-    { valor: 6, sufixo: "", rotulo: "repositórios abertos" },
+    { valor: 8, sufixo: "", rotulo: "repositórios abertos" },
 ];
 
 // ---------- Vitrine: os sistemas que passam como "vídeo" ----------
@@ -209,6 +209,7 @@ const PROJETOS = [
         descricao: "Central de chamados com quadro kanban de arrastar e soltar, fluxo de status, histórico " +
             "de interações e login por perfil.",
         tecnologias: ["TypeScript", "Next.js", "Prisma", "NextAuth", "React"],
+        repo: "https://github.com/italoeduardo/gestao-de-chamados",
     },
     {
         nome: "StatusHub", icone: "🩺", categoria: "Infraestrutura",
@@ -233,7 +234,9 @@ const PROJETOS = [
         nome: "Imperdata", icone: "⛽", categoria: "Cliente",
         descricao: "Site institucional de uma empresa de tecnologia para postos de combustíveis, com o " +
             "conceito de “planta do posto” interativa e página de trabalhe conosco.",
-        tecnologias: ["HTML5", "CSS3", "JavaScript"],
+        tecnologias: ["HTML5", "CSS3", "JavaScript", "SVG", "PHP"],
+        link: "https://imperdata.com.br",
+        repo: "https://github.com/italoeduardo/imperdata",
     },
     {
         nome: "ClinicSite", icone: "🌐", categoria: "Institucional",
