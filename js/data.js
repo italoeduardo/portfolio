@@ -16,7 +16,7 @@ const STATS = [
     { valor: 18, sufixo: "+", rotulo: "sistemas entregues" },
     { valor: 8, sufixo: "", rotulo: "painéis de BI viraram apps" },
     { valor: 72, sufixo: "", rotulo: "testes automatizados públicos" },
-    { valor: 8, sufixo: "", rotulo: "repositórios abertos" },
+    { valor: 9, sufixo: "", rotulo: "repositórios abertos" },
 ];
 
 // ---------- Vitrine: os sistemas que passam como "vídeo" ----------
@@ -229,6 +229,7 @@ const PROJETOS = [
             "cliente, painel do barbeiro com agenda do dia e confirmação por e-mail.",
         tecnologias: [".NET 8", "ASP.NET Core", "EF Core", "PostgreSQL", "JWT", "Docker"],
         link: "https://studiofelipeserra.com",
+        repo: "https://github.com/italoeduardo/studio-felipe-serra",
     },
     {
         nome: "Imperdata", icone: "⛽", categoria: "Cliente",
