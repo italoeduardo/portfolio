@@ -4,144 +4,147 @@
 <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Italo Eduardo · Desenvolvedor Java & Analista de Dados/BI</title>
-    <meta name="description" content="Portfólio de Italo Eduardo — desenvolvedor Java full-stack com Spring Boot, JPA e SQL. Sistemas web e dashboards que substituem planilhas e Power BI." />
+    <title>Italo Eduardo · Desenvolvedor Java & Analista de Dados</title>
+    <meta name="description" content="Portfólio de Italo Eduardo: sistemas de logística, finanças, operação e saúde em Java (Spring Boot), com dados fictícios, código aberto e testes automatizados." />
     <meta name="author" content="Italo Eduardo" />
+    <meta name="theme-color" content="#070a12" />
 
-    <!-- Open Graph (LinkedIn / WhatsApp preview) -->
+    <!-- Prévia no LinkedIn / WhatsApp -->
     <meta property="og:type" content="website" />
-    <meta property="og:title" content="Italo Eduardo · Desenvolvedor Java & Analista de Dados/BI" />
-    <meta property="og:description" content="Sistemas web e dashboards em Java (Spring Boot), JPA e SQL. Suíte completa de painéis logísticos, comerciais e financeiros." />
+    <meta property="og:title" content="Italo Eduardo · Desenvolvedor Java & Analista de Dados" />
+    <meta property="og:description" content="Veja os sistemas rodando: OTIF, KPIs logísticos, DRE gerencial, produtividade de armazém e ERP de clínica — Java, Spring Boot e dados." />
+    <meta property="og:image" content="https://italoeduardo.github.io/portfolio/assets/og.jpg" />
+    <meta name="twitter:card" content="summary_large_image" />
 
-    <link rel="stylesheet" href="css/app.css" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet" />
+    <link rel="stylesheet" href="css/site.css" />
+    <link rel="stylesheet" href="css/demo.css" />
     <link rel="icon" type="image/png" href="favicon.png" />
 </head>
 
 <body>
-    <!-- Splash de carregamento -->
-    <div class="loading-condor" id="loader">
-        <div class="spinner"></div>
-        <p>Carregando portfólio…</p>
-    </div>
+    <div class="progresso-pagina" id="progressoPagina" aria-hidden="true"></div>
+    <div class="fundo" aria-hidden="true"><span class="brilho b1"></span><span class="brilho b2"></span><span class="grade"></span></div>
 
-    <div class="page">
-        <!-- NAVBAR -->
-        <nav class="topbar" id="topbar">
-            <a href="#topo" class="brand">
-                <span class="brand-mark">IE</span>
-                <span class="brand-name">Italo Eduardo</span>
-            </a>
-            <button class="nav-toggle" id="navToggle" aria-label="Menu">
-                <span></span><span></span><span></span>
-            </button>
-            <div class="nav-links" id="navLinks">
-                <a href="#sobre">Sobre</a>
-                <a href="#skills">Skills</a>
-                <a href="#projetos">Projetos</a>
-                <a href="#demo">Demo</a>
-                <a href="#contato" class="nav-cta">Contato</a>
-            </div>
+    <header class="topo" id="topo">
+        <a class="marca" href="#inicio" aria-label="Início">
+            <span class="marca-logo">IE</span>
+            <span class="marca-nome">Italo Eduardo</span>
+        </a>
+        <nav class="menu" id="menu" aria-label="Seções">
+            <a href="#sistemas">Sistemas</a>
+            <a href="#demo">Ao vivo</a>
+            <a href="#projetos">Projetos</a>
+            <a href="#habilidades">Habilidades</a>
+            <a href="#contato" class="menu-cta">Contato</a>
         </nav>
+        <button class="menu-botao" id="menuBotao" aria-label="Abrir menu" aria-expanded="false" aria-controls="menu">
+            <span></span><span></span><span></span>
+        </button>
+    </header>
 
-        <main>
-            <!-- HERO -->
-            <section class="hero" id="topo">
-                <div class="hero-bg"></div>
-                <div class="hero-inner">
-                    <p class="hero-hello">Olá, eu sou o</p>
-                    <h1 class="hero-nome">Italo Eduardo</h1>
-                    <h2 class="hero-titulo">Desenvolvedor Java Full-Stack &amp; Analista de Dados / BI</h2>
-                    <p class="hero-tagline">
-                        Transformo dados operacionais em <strong>sistemas web</strong> e
-                        <strong>dashboards</strong> que substituem planilhas e relatórios de BI —
-                        do banco de dados ao deploy em produção.
-                    </p>
-                    <div class="hero-cta">
-                        <a href="#projetos" class="btn btn-primary">Ver projetos</a>
-                        <a href="#contato" class="btn btn-ghost">Falar comigo</a>
+    <main>
+        <!-- ===== ABERTURA + VITRINE ===== -->
+        <section class="abertura" id="inicio">
+            <div class="abertura-texto revelar">
+                <span class="selo"><span class="pulso"></span>Aberto a novas oportunidades</span>
+                <h1>Transformo dados de operação em <span class="destaque">sistemas que as pessoas usam todo dia</span>.</h1>
+                <p class="abertura-sub">
+                    Sou <b>Italo Eduardo</b>, desenvolvedor <b>Java full-stack</b> e analista de dados.
+                    Troco planilhas e relatórios de BI por aplicações com regras de negócio, testes e deploy.
+                    Assista aos sistemas abaixo — tudo com dados fictícios.
+                </p>
+                <div class="abertura-acoes">
+                    <a href="#sistemas" class="botao botao-principal">Ver os sistemas</a>
+                    <a href="https://github.com/italoeduardo" target="_blank" rel="noopener" class="botao botao-vazado">Código no GitHub ↗</a>
+                </div>
+            </div>
+
+            <div class="vitrine revelar" id="vitrine" aria-roledescription="carrossel" aria-label="Vitrine de sistemas">
+                <div class="vitrine-barras" id="vitrineBarras"></div>
+                <div class="janela janela-vitrine" id="vitrineJanela">
+                    <div class="janela-barra">
+                        <span class="pontos"><i></i><i></i><i></i></span>
+                        <span class="janela-url" id="vitrineUrl"></span>
+                        <button class="vitrine-pausa" id="vitrinePausa" aria-label="Pausar a vitrine">❚❚</button>
                     </div>
-                    <div class="hero-stack" id="heroStack"></div>
+                    <div class="janela-tela" id="vitrineTela" aria-live="polite"></div>
+                    <div class="vitrine-legenda" id="vitrineLegenda"></div>
                 </div>
-                <a href="#sobre" class="scroll-hint" aria-label="Rolar">▾</a>
-            </section>
+                <div class="vitrine-chips" id="vitrineChips" role="tablist" aria-label="Escolher sistema"></div>
+            </div>
 
-            <!-- SOBRE -->
-            <section class="secao secao-clara" id="sobre">
-                <div class="container">
-                    <span class="secao-eyebrow">Quem sou</span>
-                    <h2 class="secao-titulo">Sobre mim</h2>
-                    <div class="sobre-grid">
-                        <p class="sobre-texto">
-                            Desenvolvedor full-stack focado em transformar dados operacionais em sistemas web
-                            e dashboards que substituem planilhas e relatórios de BI por aplicações vivas — com
-                            autenticação, metas editáveis e análise assistida por IA. Trabalho de ponta a ponta:
-                            modelagem de dados em SQL, back-end em <strong>Java com Spring Boot</strong>, front-end
-                            responsivo e deploy em produção com Linux, nginx e systemd.
-                        </p>
-                        <div class="stats" id="stats"></div>
-                    </div>
-                </div>
-            </section>
+            <ul class="numeros revelar" id="numeros"></ul>
+        </section>
 
-            <!-- SKILLS -->
-            <section class="secao secao-navy" id="skills">
-                <div class="container">
-                    <span class="secao-eyebrow">O que eu uso</span>
-                    <h2 class="secao-titulo secao-titulo-claro">Competências técnicas</h2>
-                    <div class="skills-grid" id="skillsGrid"></div>
-                </div>
-            </section>
+        <!-- ===== OS SISTEMAS, UM POR UM ===== -->
+        <section class="secao" id="sistemas">
+            <div class="secao-cabeca revelar">
+                <span class="secao-rotulo">Os sistemas</span>
+                <h2>Um por um, rodando de verdade</h2>
+                <p>Cada sistema abaixo está no meu GitHub com código, testes e instruções para rodar.
+                    As telas passam sozinhas; clique nas miniaturas para escolher.</p>
+            </div>
+            <div id="casos"></div>
+        </section>
 
-            <!-- PROJETOS -->
-            <section class="secao secao-clara" id="projetos">
-                <div class="container">
-                    <span class="secao-eyebrow">Portfólio</span>
-                    <h2 class="secao-titulo">Projetos em destaque</h2>
-                    <div class="filtros" id="filtros"></div>
-                    <div class="projetos-grid" id="projetosGrid"></div>
-                </div>
-            </section>
+        <!-- ===== DEMO AO VIVO ===== -->
+        <section class="secao" id="demo">
+            <div class="secao-cabeca revelar">
+                <span class="secao-rotulo">Ao vivo</span>
+                <h2>Mexa você mesmo</h2>
+                <p>Um painel de análise rodando aqui na página: troque a região e veja KPIs, gráficos e o insight
+                    se recalcularem. Embaixo, o back-end em Java (Spring Boot), JPA e SQL que serviria esses dados.</p>
+            </div>
+            <div class="demo-moldura revelar" id="demoRoot"></div>
+        </section>
 
-            <!-- DEMO -->
-            <section class="secao secao-clara secao-demo" id="demo">
-                <div class="container">
-                    <span class="secao-eyebrow">Aplicação ao vivo</span>
-                    <h2 class="secao-titulo">Demonstração de painel com dados fictícios</h2>
-                    <p class="demo-intro">
-                        Uma aplicação interativa rodando aqui mesmo — os dados são processados no
-                        navegador, os gráficos são <strong>SVG</strong>, e o showcase do back-end mostra
-                        <strong>Java (Spring Boot)</strong>, <strong>JPA</strong> e <strong>SQL</strong>. Tudo com dados fictícios.
-                    </p>
-                    <div id="demoRoot"></div>
-                </div>
-            </section>
+        <!-- ===== OUTROS PROJETOS ===== -->
+        <section class="secao" id="projetos">
+            <div class="secao-cabeca revelar">
+                <span class="secao-rotulo">Mais projetos</span>
+                <h2>O resto da suíte</h2>
+                <p>Sistemas que também entreguei e ainda vão ganhar versão pública com dados fictícios.</p>
+            </div>
+            <div class="projetos" id="listaProjetos"></div>
+        </section>
 
-            <!-- CONTATO -->
-            <section class="secao secao-navy secao-contato" id="contato">
-                <div class="container container-estreito">
-                    <span class="secao-eyebrow">Vamos conversar</span>
-                    <h2 class="secao-titulo secao-titulo-claro">Bora construir algo juntos?</h2>
-                    <p class="contato-texto">
-                        Estou aberto a oportunidades e projetos. Se você curtiu o que viu,
-                        me chama — respondo rápido.
-                    </p>
-                    <div class="contato-links">
-                        <a href="mailto:italoeduardo368@gmail.com" class="contato-btn">✉️ italoeduardo368@gmail.com</a>
-                        <a href="https://www.linkedin.com/in/italo-eduardo-9614b3273" target="_blank" rel="noopener" class="contato-btn">in LinkedIn</a>
-                        <a href="https://wa.me/5561982522662" target="_blank" rel="noopener" class="contato-btn">💬 WhatsApp</a>
-                        <a href="https://github.com/italoeduardo" target="_blank" rel="noopener" class="contato-btn">⌥ GitHub</a>
-                    </div>
-                </div>
-            </section>
-        </main>
+        <!-- ===== HABILIDADES ===== -->
+        <section class="secao" id="habilidades">
+            <div class="secao-cabeca revelar">
+                <span class="secao-rotulo">Habilidades</span>
+                <h2>Com o que eu trabalho</h2>
+            </div>
+            <div class="habilidades" id="listaHabilidades"></div>
+            <div class="como-trabalho revelar">
+                <div><b>Regra de negócio primeiro.</b> Antes do layout, eu valido o número: margem sem CMV, prazo sem
+                    feriado e média de taxa não passam.</div>
+                <div><b>Teste do que importa.</b> Calendário, regimes contábeis, permissões e cálculos ficam cobertos
+                    por testes automatizados.</div>
+                <div><b>Do banco ao deploy.</b> SQL, back-end, front-end, Docker e CI — o sistema sai rodando.</div>
+            </div>
+        </section>
 
-        <footer class="rodape">
-            <p>© <span id="ano"></span> Italo Eduardo · Desenvolvedor Java &amp; Analista de Dados</p>
-        </footer>
-    </div>
+        <!-- ===== CONTATO ===== -->
+        <section class="secao contato" id="contato">
+            <div class="contato-caixa revelar">
+                <span class="secao-rotulo">Contato</span>
+                <h2>Vamos conversar?</h2>
+                <p>Estou aberto a vagas e projetos. Se algum desses sistemas resolveria um problema seu, me chama.</p>
+                <div class="contato-links" id="contatoLinks"></div>
+            </div>
+        </section>
+    </main>
+
+    <footer class="rodape">
+        <p>© <span id="ano"></span> Italo Eduardo · Feito à mão com HTML, CSS e JavaScript · Sistemas com dados 100% fictícios</p>
+    </footer>
 
     <script src="js/data.js"></script>
     <script src="js/demo.js"></script>
+    <script src="js/vitrine.js"></script>
     <script src="js/portfolio.js"></script>
 </body>
 
