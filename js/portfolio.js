@@ -104,6 +104,7 @@
                     <div class="tags">${s.stack.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
                     <div class="caso-acoes">
                         <a class="botao botao-principal" href="${s.repo}" target="_blank" rel="noopener">Ver o código ↗</a>
+                        ${s.link ? `<a class="botao botao-vazado" href="${s.link}" target="_blank" rel="noopener">Ver no ar ↗</a>` : ""}
                         <button class="botao botao-vazado" data-proximo="${i}">${i < VITRINE.length - 1 ? "Próximo sistema ↓" : "Testar ao vivo ↓"}</button>
                     </div>
                 </div>
@@ -269,7 +270,7 @@
         ligarNavegacao();
         ligarRevelar();
         if (window.DemoApp) DemoApp.init("#demoRoot");
-        // link direto para um sistema: #sistema-finpanel
+        // link direto para um sistema: #sistema-otif
         if (location.hash.startsWith("#sistema-")) setTimeout(() => abrirCaso(location.hash.slice(9)), 300);
     });
 })();

@@ -23,12 +23,12 @@ const STATS = [
 // telas: capturas reais dos sistemas rodando com dados fictícios (assets/sistemas)
 const VITRINE = [
     {
-        id: "sla-tracker",
-        nome: "SLA Tracker",
+        id: "otif",
+        nome: "OTIF",
         chamada: "Quantos pedidos chegam no prazo e completos?",
         categoria: "Logística",
         cor: "#3b82f6",
-        url: "sla-tracker.app",
+        url: "otif.app",
         descricao: "Mede o OTIF (On Time In Full) de uma operação de entregas: cada pedido é avaliado contra " +
             "o prazo prometido em dias úteis — com feriados nacionais, inclusive os móveis — e contra a " +
             "quantidade entregue. O painel mostra tendência, transportadoras e regiões com pior desempenho, " +
@@ -40,20 +40,20 @@ const VITRINE = [
         ],
         numeros: [{ v: "25", r: "testes" }, { v: "1.400+", r: "pedidos simulados" }, { v: "D+2 a D+8", r: "prazos por região" }],
         stack: ["Java 21", "Spring Boot", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5", "Docker"],
-        repo: "https://github.com/italoeduardo/sla-tracker",
+        repo: "https://github.com/italoeduardo/otif",
         telas: [
-            { img: "sla-painel", legenda: "Painel: OTIF, tendência mensal e motivos de falha" },
-            { img: "sla-risco", legenda: "Pedidos em risco, ordenados por dias úteis de atraso" },
-            { img: "sla-pedido", legenda: "Diagnóstico do pedido com a linha do tempo" },
+            { img: "otif-painel", legenda: "Painel: OTIF, tendência mensal e motivos de falha" },
+            { img: "otif-risco", legenda: "Pedidos em risco, ordenados por dias úteis de atraso" },
+            { img: "otif-pedido", legenda: "Diagnóstico do pedido com a linha do tempo" },
         ],
     },
     {
-        id: "logiboard",
-        nome: "LogiBoard",
+        id: "gerot",
+        nome: "GEROT",
         chamada: "Os 12 números que dizem se a operação está saudável",
         categoria: "Logística",
         cor: "#14b8a6",
-        url: "logiboard.app",
+        url: "gerot.app",
         descricao: "Painel com os 12 indicadores de um centro de distribuição — faturamento, corte, devolução, " +
             "estoque bloqueado, recebimento, retira, manutenção e produtividade. Cada um com meta, status, " +
             "variação contra o período anterior e mini-gráfico. Uma análise automática escreve em português " +
@@ -65,19 +65,19 @@ const VITRINE = [
         ],
         numeros: [{ v: "12", r: "indicadores" }, { v: "24", r: "testes" }, { v: "2", r: "centros de distribuição" }],
         stack: ["Java 21", "Spring Boot", "Spring Security", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5"],
-        repo: "https://github.com/italoeduardo/logiboard",
+        repo: "https://github.com/italoeduardo/gerot",
         telas: [
-            { img: "logiboard-painel", legenda: "Visão geral: análise automática, projeção e os 12 KPIs" },
-            { img: "logiboard-recife", legenda: "Filtrando um CD: o que muda quando se olha uma unidade" },
+            { img: "gerot-painel", legenda: "Visão geral: análise automática, projeção e os 12 KPIs" },
+            { img: "gerot-recife", legenda: "Filtrando um CD: o que muda quando se olha uma unidade" },
         ],
     },
     {
-        id: "finpanel",
-        nome: "FinPanel",
+        id: "painel-de-despesas",
+        nome: "Painel de Despesas",
         chamada: "A DRE do mês sem abrir planilha nenhuma",
         categoria: "Financeiro",
         cor: "#10b981",
-        url: "finpanel.app",
+        url: "painel-de-despesas.app",
         descricao: "DRE gerencial em cascata — faturamento, custo das mercadorias, margem bruta, despesas por " +
             "grupo e conta, resultado operacional — e um painel de fretes. Uma chave alterna entre competência " +
             "(quando o fato aconteceu) e caixa (quando o dinheiro saiu), e qualquer número abre os lançamentos " +
@@ -89,20 +89,20 @@ const VITRINE = [
         ],
         numeros: [{ v: "18", r: "contas no plano" }, { v: "14", r: "testes" }, { v: "~2 anos", r: "de histórico simulado" }],
         stack: ["Java 21", "Spring Boot", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5"],
-        repo: "https://github.com/italoeduardo/finpanel",
+        repo: "https://github.com/italoeduardo/painel-de-despesas",
         telas: [
-            { img: "finpanel-dre", legenda: "DRE em cascata com margem bruta e operacional" },
-            { img: "finpanel-frete", legenda: "Fretes: custo por transportadora e por unidade" },
-            { img: "finpanel-lancamentos", legenda: "Drill-down até o lançamento, com situação de pagamento" },
+            { img: "despesas-dre", legenda: "DRE em cascata com margem bruta e operacional" },
+            { img: "despesas-frete", legenda: "Fretes: custo por transportadora e por unidade" },
+            { img: "despesas-lancamentos", legenda: "Drill-down até o lançamento, com situação de pagamento" },
         ],
     },
     {
-        id: "warehouseflow",
-        nome: "WarehouseFlow",
+        id: "produtividade",
+        nome: "Produtividade",
         chamada: "Quem separa mais, em qual setor e em que hora do dia",
         categoria: "Operação",
         cor: "#8b5cf6",
-        url: "warehouseflow.app",
+        url: "produtividade.app",
         descricao: "Produtividade da separação no armazém: volumes por hora efetivamente separando, ranking dos " +
             "separadores, matriz Separador × Setor em mapa de calor, evolução por turno e o pico de " +
             "separação ao longo do dia — com filtros por unidade, turno e setor.",
@@ -113,10 +113,10 @@ const VITRINE = [
         ],
         numeros: [{ v: "24", r: "separadores" }, { v: "6", r: "setores" }, { v: "3", r: "turnos" }],
         stack: ["Java 21", "Spring Boot", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5"],
-        repo: "https://github.com/italoeduardo/warehouseflow",
+        repo: "https://github.com/italoeduardo/produtividade",
         telas: [
-            { img: "warehouse-painel", legenda: "Volumes por turno, pico por hora, ranking e matriz" },
-            { img: "warehouse-recife", legenda: "Recorte de uma unidade: a equipe e seus setores" },
+            { img: "produtividade-painel", legenda: "Volumes por turno, pico por hora, ranking e matriz" },
+            { img: "produtividade-recife", legenda: "Recorte de uma unidade: a equipe e seus setores" },
         ],
     },
     {
@@ -145,6 +145,81 @@ const VITRINE = [
         ],
     },
     {
+        id: "gestao-de-chamados",
+        nome: "Gestão de Chamados",
+        chamada: "Todo pedido de TI e RH num quadro só, com prazo e histórico",
+        categoria: "Suporte",
+        cor: "#d4a12a",
+        url: "gestao-de-chamados.app",
+        descricao: "Central de chamados com quadro kanban por situação, filas de atendimento e ações em massa. " +
+            "Cada chamado tem prazo calculado pela prioridade, conversa com mensagens internas que o " +
+            "solicitante não vê e um histórico que mostra quanto tempo ele ficou em cada etapa.",
+        destaques: [
+            "Prazo automático por prioridade, com selo de atrasado",
+            "Histórico de situação: quem mudou e quanto tempo ficou em cada etapa",
+            "Perfis de solicitante, atendente e gestor, com exportação para CSV",
+        ],
+        numeros: [{ v: "5", r: "etapas no kanban" }, { v: "4", r: "prioridades com prazo" }, { v: "3", r: "perfis de acesso" }],
+        stack: ["TypeScript", "Next.js 16", "React 19", "Prisma", "SQLite", "Auth.js", "Tailwind"],
+        repo: "https://github.com/italoeduardo/gestao-de-chamados",
+        telas: [
+            { img: "chamados-kanban", legenda: "Quadro kanban com os contadores por situação" },
+            { img: "chamados-detalhe", legenda: "Chamado: prazo, conversa e histórico de situação" },
+            { img: "chamados-todos", legenda: "Todos os chamados, com filtros e exportação" },
+        ],
+    },
+    {
+        id: "studio-felipe-serra",
+        nome: "Studio Felipe Serra",
+        chamada: "Barbearia com agenda online, do site ao painel do barbeiro",
+        categoria: "Cliente",
+        cor: "#d4af37",
+        url: "studiofelipeserra.com",
+        descricao: "Sistema completo de uma barbearia em Brasília, no ar: site com vídeo e serviços, portal onde o " +
+            "cliente cria conta e marca o horário (os horários livres saem da duração dos serviços escolhidos) " +
+            "e o painel do barbeiro com a agenda do dia, bloqueios e avisos em tempo real.",
+        destaques: [
+            "Vários serviços num horário só, com duração e preço somados pelo catálogo",
+            "O barbeiro marca quem ligou ou chegou sem conta; se a pessoa criar conta depois, o histórico aparece",
+            "Login do painel validado no servidor, com limite de tentativas",
+        ],
+        numeros: [{ v: "3", r: "partes: site, portal e painel" }, { v: "20", r: "serviços no catálogo" }, { v: "5,0 ★", r: "nota no Google" }],
+        stack: [".NET 8", "ASP.NET Core", "EF Core", "PostgreSQL", "JWT", "HTML/CSS/JS", "Docker"],
+        repo: "https://github.com/italoeduardo/studio-felipe-serra",
+        link: "https://studiofelipeserra.com",
+        telas: [
+            { img: "studio-inicio", legenda: "Site: vídeo de abertura e apresentação do studio" },
+            { img: "studio-servicos", legenda: "Serviços com duração e galeria de trabalhos" },
+            { img: "studio-painel", legenda: "Painel do barbeiro: agenda do dia e resumo (dados fictícios)" },
+            { img: "studio-horarios", legenda: "Avaliações, horário de funcionamento e contato" },
+        ],
+    },
+    {
+        id: "imperdata",
+        nome: "Imperdata",
+        chamada: "Site de tecnologia para postos, com a planta do posto viva",
+        categoria: "Cliente",
+        cor: "#e30613",
+        url: "imperdata.com.br",
+        descricao: "Site institucional de uma empresa de tecnologia e gestão para postos de combustíveis. O topo é uma " +
+            "planta técnica do posto desenhada em SVG: bombas, tanques, conveniência e totem de preços acendem " +
+            "conforme a solução escolhida. Feito sem framework e com LGPD de verdade.",
+        destaques: [
+            "Planta do posto interativa em SVG, ligada à lista de soluções",
+            "Trabalhe conosco com envio de currículo que não fica gravado no servidor",
+            "Cookies com consentimento por categoria e política de privacidade própria",
+        ],
+        numeros: [{ v: "9", r: "soluções na planta" }, { v: "0", r: "frameworks" }, { v: "LGPD", r: "consentimento de cookies" }],
+        stack: ["HTML5", "CSS3", "JavaScript", "SVG", "PHP"],
+        repo: "https://github.com/italoeduardo/imperdata",
+        link: "https://imperdata.com.br",
+        telas: [
+            { img: "imperdata-inicio", legenda: "Abertura com a planta do posto e o dia a dia da operação" },
+            { img: "imperdata-solucoes", legenda: "Soluções, integrações e o ecossistema do posto" },
+            { img: "imperdata-metodo", legenda: "Como a empresa trabalha e seus diferenciais" },
+        ],
+    },
+    {
         id: "transcritor",
         nome: "Transcritor de Reunião",
         chamada: "Legenda ao vivo de tudo que se fala na reunião",
@@ -169,78 +244,55 @@ const VITRINE = [
 // ---------- Outros projetos (grade compacta) ----------
 const PROJETOS = [
     {
-        nome: "RouteCast", icone: "🚚", categoria: "Logística",
+        nome: "Projeção de Cargas", icone: "🚚", categoria: "Logística",
         descricao: "Projeta o prazo de cada carga a partir do ERP, com lista pesquisável e detalhe do pedido " +
             "com mensagem pronta para o atendimento. Deu início ao padrão de toda a suíte.",
         tecnologias: ["Java", "Spring Boot", "Thymeleaf", "JPA", "DataTables.js"],
     },
     {
-        nome: "MetaVendas", icone: "🎯", categoria: "Comercial",
+        nome: "FMeta", icone: "🎯", categoria: "Comercial",
         descricao: "Aposentou uma planilha de metas com várias abas: grava metas diárias, de positivação e " +
             "mensais no banco com upsert idempotente, virando fonte para outros painéis.",
         tecnologias: ["Java", "Spring Boot", "JPA", "SQL"],
     },
     {
-        nome: "FleetCheck", icone: "✅", categoria: "Operação",
+        nome: "Checklist", icone: "✅", categoria: "Operação",
         descricao: "Sincroniza de hora em hora uma API externa de checklists de frota e mostra score, " +
             "conformidade, ranking de operadores e itens mais reprovados.",
         tecnologias: ["Java", "Spring Boot", "Scheduler", "REST API", "JPA"],
     },
     {
-        nome: "ExpiryWatch", icone: "⏰", categoria: "Estoque",
+        nome: "Alertas de Vencimento", icone: "⏰", categoria: "Estoque",
         descricao: "Substituiu o controle manual de validade: faixas de vencimento, exportação para Excel, " +
             "análise automática e usuários por perfil.",
         tecnologias: ["Java", "Spring Boot", "Thymeleaf", "JPA", "Chart.js"],
     },
     {
-        nome: "StockGuard", icone: "📉", categoria: "Logística",
+        nome: "Indicadores Logísticos", icone: "📉", categoria: "Logística",
         descricao: "Pedidos atrasados e estoque bloqueado num só painel, com fotografia diária automática " +
             "para análise de tendência.",
         tecnologias: ["Java", "Spring Boot", "JPA", "Job agendado"],
     },
     {
-        nome: "GatePass", icone: "🚪", categoria: "Operação",
+        nome: "Portaria", icone: "🚪", categoria: "Operação",
         descricao: "Portaria com controle de retirada e devolução de equipamentos, indicadores de uso e " +
             "exportação para Excel e PDF.",
         tecnologias: ["Node.js", "Express", "React", "Tailwind", "JWT"],
     },
     {
-        nome: "Gestão de Chamados", icone: "🎫", categoria: "Suporte",
-        descricao: "Central de chamados com quadro kanban de arrastar e soltar, fluxo de status, histórico " +
-            "de interações e login por perfil.",
-        tecnologias: ["TypeScript", "Next.js", "Prisma", "NextAuth", "React"],
-        repo: "https://github.com/italoeduardo/gestao-de-chamados",
-    },
-    {
-        nome: "StatusHub", icone: "🩺", categoria: "Infraestrutura",
+        nome: "Status das Aplicações", icone: "🩺", categoria: "Infraestrutura",
         descricao: "Monitora a saúde das outras aplicações com health checks periódicos e histórico de " +
             "disponibilidade — o “painel dos painéis”.",
         tecnologias: ["Java", "Spring Boot", "Thymeleaf"],
     },
     {
-        nome: "PartnerHub", icone: "🤝", categoria: "Comercial",
+        nome: "Redes Parceiras", icone: "🤝", categoria: "Comercial",
         descricao: "CRM simplificado para clientes segmentados por rede de parceiros, com histórico e " +
             "indicadores por rede.",
         tecnologias: ["Java", "Spring Boot", "JPA", "SQL"],
     },
     {
-        nome: "Studio Felipe Serra", icone: "💈", categoria: "Cliente",
-        descricao: "Site e sistema de agendamento de uma barbearia em Brasília: reservas online, portal do " +
-            "cliente, painel do barbeiro com agenda do dia e confirmação por e-mail.",
-        tecnologias: [".NET 8", "ASP.NET Core", "EF Core", "PostgreSQL", "JWT", "Docker"],
-        link: "https://studiofelipeserra.com",
-        repo: "https://github.com/italoeduardo/studio-felipe-serra",
-    },
-    {
-        nome: "Imperdata", icone: "⛽", categoria: "Cliente",
-        descricao: "Site institucional de uma empresa de tecnologia para postos de combustíveis, com o " +
-            "conceito de “planta do posto” interativa e página de trabalhe conosco.",
-        tecnologias: ["HTML5", "CSS3", "JavaScript", "SVG", "PHP"],
-        link: "https://imperdata.com.br",
-        repo: "https://github.com/italoeduardo/imperdata",
-    },
-    {
-        nome: "ClinicSite", icone: "🌐", categoria: "Institucional",
+        nome: "Site da Clínica", icone: "🌐", categoria: "Institucional",
         descricao: "Site institucional de clínica como PWA instalável, com blog e contato. Imagens caíram de " +
             "~8,6 MB para ~1,5 MB.",
         tecnologias: ["HTML5", "CSS3", "JavaScript", "PWA"],
