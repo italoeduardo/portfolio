@@ -71,47 +71,47 @@ const PROJETOS = [
     {
         nome: "LogiBoard",
         subtitulo: "Painel de KPIs logísticos com IA",
-        descricao: "Recriação web de um painel de BI: 12 indicadores + KPIs de topo (faturamento, cortes, " +
-            "devoluções, tempo de operação…), metas editáveis por usuário master e um botão de análise " +
-            "com IA que resume o período, aponta riscos e projeta o fechamento.",
+        descricao: "Painel com os 12 indicadores da operação logística (faturamento, corte, devolução, " +
+            "estoque bloqueado, recebimento, retira, manutenção, produtividade…), metas editáveis só pelo " +
+            "gestor, projeção de fechamento do mês e uma análise automática que aponta o que precisa de atenção.",
         icone: "📈", categoria: "Logística",
-        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "IA generativa", "Chart.js"],
+        tecnologias: ["Java 21", "Spring Boot", "Spring Security", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5"],
         destaques: [
-            "12 indicadores + metas editáveis",
-            "Análise automática com IA generativa",
-            "Cache inteligente e auto-refresh",
+            "12 indicadores com status contra a meta",
+            "Análise automática + projeção do mês",
+            "Metas editáveis com login, CSRF e auditoria",
         ],
-        cor: "#1E3A8A"
+        cor: "#1E3A8A", repo: "https://github.com/italoeduardo/logiboard"
     },
     {
         nome: "FinPanel",
         subtitulo: "DRE + Frete com toggle Competência × Caixa",
-        descricao: "Substitui um painel de BI de DRE. Duas páginas (DRE e Frete) com KPIs comparados ao " +
-            "período anterior, gráficos clicáveis com drill-down até o lançamento, e um toggle " +
-            "Competência/Caixa que reprocessa tudo diretamente no SQL.",
+        descricao: "DRE gerencial em cascata (faturamento, CMV, margem bruta, despesas por grupo e conta, " +
+            "resultado operacional) e painel de fretes, com a chave Competência × Caixa e drill-down de " +
+            "qualquer número até o lançamento que o compõe.",
         icone: "💰", categoria: "Financeiro",
-        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "IA generativa", "Chart.js"],
+        tecnologias: ["Java 21", "Spring Boot", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5"],
         destaques: [
-            "Toggle Competência × Caixa direto no SQL",
+            "Competência × Caixa num clique",
+            "Comparação com o período certo (mês, ano, janela)",
             "Drill-down até o lançamento contábil",
-            "Comparação automática vs período anterior",
         ],
-        cor: "#198754"
+        cor: "#198754", repo: "https://github.com/italoeduardo/finpanel"
     },
     {
         nome: "WarehouseFlow",
         subtitulo: "Produtividade de separação (WMS)",
-        descricao: "Painel que substitui um relatório de BI de produtividade da separação no WMS. Mostra KPIs " +
-            "de ordens de serviço, peso e itens separados, matriz Separador × Setor, ranking de colaboradores " +
-            "e evolução dia a dia, com filtros ágeis por unidade, turno e setor.",
+        descricao: "Painel de produtividade da separação no armazém: volumes por hora efetivamente separando, " +
+            "ranking de separadores, matriz Separador × Setor em mapa de calor, evolução diária por turno e " +
+            "o pico de separação ao longo do dia, com filtros por unidade, turno e setor.",
         icone: "📦", categoria: "Operação",
-        tecnologias: ["Java", "Spring Boot", "Thymeleaf", "Spring Data JPA", "Chart.js"],
+        tecnologias: ["Java 21", "Spring Boot", "Spring Data JPA", "Thymeleaf", "Chart.js", "JUnit 5"],
         destaques: [
-            "Matriz Separador × Setor",
-            "Ranking de colaboradores",
-            "Filtros por unidade, turno e setor",
+            "Matriz Separador × Setor em mapa de calor",
+            "Ranking com amostra mínima (sem distorção)",
+            "Pico de separação por hora do dia",
         ],
-        cor: "#5A3A6F"
+        cor: "#5A3A6F", repo: "https://github.com/italoeduardo/warehouseflow"
     },
     {
         nome: "FleetCheck",
