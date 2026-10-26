@@ -244,12 +244,6 @@ const PROJETOS = [
             "~8,6 MB para ~1,5 MB.",
         tecnologias: ["HTML5", "CSS3", "JavaScript", "PWA"],
     },
-    {
-        nome: "FinPanel · versão de porte", icone: "☕", categoria: "Estudo",
-        descricao: "Reescrita completa de um painel financeiro de .NET para Java, mesmas regras, totais " +
-            "validados centavo a centavo contra a versão original.",
-        tecnologias: ["Java 21", "Spring Boot 3", "JDBC", "Virtual Threads"],
-    },
 ];
 
 const SKILLS = [
