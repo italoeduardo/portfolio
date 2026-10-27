@@ -1,14 +1,2 @@
-/* Só o que a demo precisa além do CSS compilado do sistema original. */
-.demo-arrastando { opacity: .4; }
-.demo-sobre { background: #eff6ff; box-shadow: 0 0 0 2px #93c5fd; }
-.demo-card { cursor: grab; }
-.demo-card:active { cursor: grabbing; }
-.demo-aviso { font-size: 11px; color: #94a3b8; line-height: 1.4; }
-.demo-aviso button { color: #94a3b8; text-decoration: underline; background: none; border: 0; padding: 0; cursor: pointer; font: inherit; }
-.demo-aviso button:hover { color: #fff; }
-.demo-dica { margin-top: 1rem; border-top: 1px solid #e2e8f0; padding-top: 1rem; }
-.demo-perfis { display: grid; grid-template-columns: repeat(3, 1fr); gap: .4rem; margin-top: .5rem; }
-.demo-perfis button { border: 1px solid #cbd5e1; border-radius: .375rem; background: #fff; padding: .4rem .25rem; font-size: .75rem; font-weight: 500; color: #334155; cursor: pointer; }
-.demo-perfis button:hover { background: #f8fafc; border-color: #94a3b8; }
-.demo-novo { display: inline-flex; align-items: center; gap: .35rem; margin-bottom: .5rem; border-radius: .375rem; background: #242424; color: #fff; padding: .4rem .8rem; font-size: .875rem; font-weight: 500; text-decoration: none; }
-.demo-novo:hover { background: #171717; color: #fff; }
+/* (c) 2026 Italo Eduardo. Todos os direitos reservados. Proibida a cópia, modificação ou uso sem autorização por escrito. */
+.demo-arrastando{opacity:.4}.demo-sobre{background:#eff6ff;box-shadow:0 0 0 2px #93c5fd}.demo-card{cursor:grab}.demo-card:active{cursor:grabbing}.demo-aviso{font-size:11px;color:#94a3b8;line-height:1.4}.demo-aviso button{color:#94a3b8;text-decoration:underline;background:none;border:0;padding:0;cursor:pointer;font:inherit}.demo-aviso button:hover{color:#fff}.demo-dica{margin-top:1rem;border-top:1px solid #e2e8f0;padding-top:1rem}.demo-perfis{display:grid;grid-template-columns:repeat(3,1fr);gap:.4rem;margin-top:.5rem}.demo-perfis button{border:1px solid #cbd5e1;border-radius:.375rem;background:#fff;padding:.4rem .25rem;font-size:.75rem;font-weight:500;color:#334155;cursor:pointer}.demo-perfis button:hover{background:#f8fafc;border-color:#94a3b8}.demo-novo{display:inline-flex;align-items:center;gap:.35rem;margin-bottom:.5rem;border-radius:.375rem;background:#242424;color:#fff;padding:.4rem .8rem;font-size:.875rem;font-weight:500;text-decoration:none}.demo-novo:hover{background:#171717;color:#fff}

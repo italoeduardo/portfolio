@@ -1,234 +1,33 @@
-// ============================================================
-//  Gestão de Chamados — versão que roda no navegador.
-//  Mesmas telas e regras do sistema em Next.js + Prisma
-//  (github.com/italoeduardo/gestao-de-chamados): visibilidade por perfil,
-//  kanban com arrastar e soltar, histórico de situação, mensagens internas,
-//  confirmação de leitura, fila, distribuição em massa e exportação CSV.
-//  O "banco" fica no localStorage do visitante.
-// ============================================================
-(function () {
-    "use strict";
-    const { Rota, esc, Local } = window.Demo;
-
-    // ---------- Constantes (lib/ticket-constants.ts) ----------
-    const STATUS_LABELS = { OPEN: "Novo", IN_PROGRESS: "Em Andamento", PENDING: "Pendente com Solicitante", RESOLVED: "Resolvido", CLOSED: "Encerrado" };
-    const STATUS_ORDER = ["OPEN", "IN_PROGRESS", "PENDING", "RESOLVED", "CLOSED"];
-    const PRIORITY_LABELS = { LOW: "Baixa", MEDIUM: "Média", HIGH: "Alta", URGENT: "Urgente" };
-    const PRIORITY_COLORS = { LOW: "bg-slate-100 text-slate-700", MEDIUM: "bg-blue-100 text-blue-700", HIGH: "bg-amber-100 text-amber-700", URGENT: "bg-red-100 text-red-700" };
-    const STATUS_THEME = {
-        OPEN: { icon: "M12 8v8M8 12h8M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z", iconBg: "bg-slate-100", iconText: "text-slate-500", chipBg: "bg-slate-100", chipText: "text-slate-600", cardAccent: "border-l-slate-400", gradient: "from-slate-400 to-slate-500" },
-        IN_PROGRESS: { icon: "M21 12a9 9 0 1 1-3-6.7M21 4v5h-5", iconBg: "bg-blue-100", iconText: "text-blue-600", chipBg: "bg-blue-100", chipText: "text-blue-700", cardAccent: "border-l-blue-500", gradient: "from-blue-400 to-blue-600" },
-        PENDING: { icon: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 7v5l3 3", iconBg: "bg-amber-100", iconText: "text-amber-600", chipBg: "bg-amber-100", chipText: "text-amber-700", cardAccent: "border-l-amber-500", gradient: "from-amber-400 to-amber-500" },
-        RESOLVED: { icon: "M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M8 12l3 3 5-6", iconBg: "bg-emerald-100", iconText: "text-emerald-600", chipBg: "bg-emerald-100", chipText: "text-emerald-700", cardAccent: "border-l-emerald-500", gradient: "from-emerald-400 to-emerald-600" },
-        CLOSED: { icon: "M4 7h16M6 7v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2", iconBg: "bg-slate-200", iconText: "text-slate-500", chipBg: "bg-slate-200", chipText: "text-slate-600", cardAccent: "border-l-slate-500", gradient: "from-slate-500 to-slate-600" },
-    };
-    const ROLE_LABELS = { REQUESTER: "Solicitante", AGENT: "Atendente", MANAGER: "Gestor" };
-    const AVATAR_COLORS = ["bg-blue-500", "bg-emerald-500", "bg-amber-500", "bg-rose-500", "bg-violet-500", "bg-cyan-500"];
-    const avatarColor = (name) => { let h = 0; for (let i = 0; i < name.length; i++) h = (h + name.charCodeAt(i)) % AVATAR_COLORS.length; return AVATAR_COLORS[h]; };
-    const initials = (name) => name.split(" ").filter(Boolean).slice(0, 2).map((p) => p[0].toUpperCase()).join("");
-    const novoId = () => (crypto.randomUUID ? crypto.randomUUID() : String(Date.now()) + Math.random().toString(16).slice(2));
-
-    // ---------- "Banco" (mesmo seed do prisma/seed.ts, com datas relativas a agora) ----------
-    const CHAVE = "demo.gestao-chamados.v1";
-    function seed() {
-        const agora = Date.now(), H = 3600000;
-        const ti = { id: "dep-ti", name: "TI" }, rh = { id: "dep-rh", name: "RH" };
-        const subjects = [
-            { id: "s1", departmentId: ti.id, name: "Computador com defeito", defaultPriority: "HIGH" },
-            { id: "s2", departmentId: ti.id, name: "Acesso a sistema", defaultPriority: "MEDIUM" },
-            { id: "s3", departmentId: ti.id, name: "Internet / Rede", defaultPriority: "HIGH" },
-            { id: "s4", departmentId: ti.id, name: "Instalação de software", defaultPriority: "LOW" },
-            { id: "s5", departmentId: rh.id, name: "Dúvida sobre benefícios", defaultPriority: "LOW" },
-        ];
-        const users = [
-            { id: "u-gestor", name: "Gestor TI", email: "gestor@exemplo.com", role: "MANAGER", departmentId: ti.id, active: true },
-            { id: "u-atendente", name: "Atendente TI", email: "atendente@exemplo.com", role: "AGENT", departmentId: ti.id, active: true },
-            { id: "u-usuario", name: "Usuário Teste", email: "usuario@exemplo.com", role: "REQUESTER", departmentId: null, active: true },
-        ];
-        const solicitantes = ["Ana Ribeiro", "Bruno Lima", "Carla Mendes", "Diego Souza", "Elisa Martins"].map((nome, i) => {
-            const u = { id: "u-sol" + i, name: nome, email: nome.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g, "").replace(" ", ".") + "@exemplo.com", role: "REQUESTER", departmentId: null, active: true };
-            users.push(u);
-            return u;
-        });
-        const news = [{ id: "n1", title: "Bem-vindo à Gestão de Chamados", authorId: "u-gestor", coverImageUrl: null, createdAt: agora - 26 * H,
-            content: "Esse é o novo sistema de chamados de TI e RH. Use o menu ao lado para abrir chamados, acompanhar novidades e, se você for gestor, cadastrar pessoas em Configurações." }];
-        const demos = [
-            ["Notebook não liga após atualização", "Depois da atualização de ontem o notebook não passa da tela preta.", "s1", "IN_PROGRESS", "HIGH", 1],
-            ["Sem acesso ao ERP", "Minha senha do ERP expirou e não consigo redefinir.", "s2", "OPEN", "MEDIUM", 0],
-            ["Wi-Fi caindo na sala de reunião", "A rede cai a cada 10 minutos na sala 2.", "s3", "PENDING", "HIGH", 3],
-            ["Instalar Power BI Desktop", "Preciso do Power BI para os relatórios do mês.", "s4", "RESOLVED", "LOW", 6],
-            ["Impressora do financeiro offline", "A impressora aparece como offline para todo o setor.", "s1", "OPEN", "URGENT", 0],
-            ["Liberar acesso à pasta de contratos", "Entrei no jurídico e preciso da pasta compartilhada.", "s2", "IN_PROGRESS", "MEDIUM", 2],
-            ["Dúvida sobre vale-refeição", "O valor do VR deste mês veio diferente.", "s5", "RESOLVED", "LOW", 8],
-            ["VPN não conecta de casa", "Erro de autenticação ao conectar na VPN.", "s3", "OPEN", "HIGH", 1],
-            ["Monitor piscando", "O segundo monitor fica piscando de tempos em tempos.", "s1", "CLOSED", "MEDIUM", 12],
-            ["Instalar pacote Office", "Máquina nova sem o Office instalado.", "s4", "IN_PROGRESS", "MEDIUM", 2],
-            ["Criar usuário para estagiária", "Estagiária começa segunda e precisa de e-mail e ERP.", "s2", "RESOLVED", "MEDIUM", 9],
-            ["Internet lenta no estoque", "Coletores demorando para sincronizar no estoque.", "s3", "PENDING", "MEDIUM", 4],
-        ];
-        const tickets = [], messages = [], events = [];
-        demos.forEach(([title, description, sid, status, priority, diasAtras], i) => {
-            const criado = agora - diasAtras * 24 * H - (i + 1) * H;
-            const s = subjects.find((x) => x.id === sid);
-            const sol = solicitantes[i % solicitantes.length];
-            const resolvido = status === "RESOLVED" || status === "CLOSED";
-            const t = { id: "t" + (1001 + i), number: 1001 + i, title, description, status, priority, departmentId: s.departmentId, subjectId: s.id,
-                requesterId: sol.id, assigneeId: status === "OPEN" ? null : "u-atendente", createdAt: criado, updatedAt: criado + (status === "OPEN" ? 0 : H),
-                dueAt: criado + (priority === "URGENT" ? 4 : priority === "HIGH" ? 24 : 72) * H, resolvedAt: resolvido ? criado + 20 * H : null };
-            tickets.push(t);
-            events.push({ id: novoId(), ticketId: t.id, fromStatus: null, toStatus: "OPEN", changedById: sol.id, createdAt: criado });
-            if (status !== "OPEN") {
-                messages.push({ id: novoId(), ticketId: t.id, authorId: "u-atendente", isInternal: false, createdAt: criado + H, content: "Olá! Já estou verificando, te aviso assim que tiver novidade." });
-                events.push({ id: novoId(), ticketId: t.id, fromStatus: "OPEN", toStatus: status, changedById: resolvido ? "u-gestor" : "u-atendente", createdAt: criado + H });
-            }
-        });
-        return { departments: [ti, rh], subjects, users, news, tickets, messages, events, reads: [] };
-    }
-    let db = Local.ler(CHAVE, null) || seed();
-    const salvar = () => Local.gravar(CHAVE, db);
-    salvar();
-
-    const user = (id) => db.users.find((u) => u.id === id);
-    const dept = (id) => db.departments.find((d) => d.id === id);
-    const subj = (id) => db.subjects.find((s) => s.id === id);
-    const ticket = (id) => db.tickets.find((t) => t.id === id);
-    const porNome = (a, b) => a.name.localeCompare(b.name, "pt-BR");
-
-    // ---------- Sessão ----------
-    const sessao = () => { try { const u = user(sessionStorage.getItem("demo.chamados.usuario")); return u && u.active ? u : null; } catch (e) { return null; } };
-    const entrar = (id) => { try { sessionStorage.setItem("demo.chamados.usuario", id); } catch (e) { /* sem storage */ } };
-    const sair = () => { try { sessionStorage.removeItem("demo.chamados.usuario"); } catch (e) { /* sem storage */ } };
-
-    // ---------- Regras (lib/tickets.ts) ----------
-    function visivel(u, t) {
-        if (u.role === "MANAGER") return true;
-        if (u.role === "AGENT") return t.departmentId === (u.departmentId ?? "__none__");
-        return t.requesterId === u.id;
-    }
-    const recentes = (lista) => [...lista].sort((a, b) => b.createdAt - a.createdAt);
-    const listTickets = (u) => recentes(db.tickets.filter((t) => visivel(u, t)));
-    const listReceived = (u) => recentes(db.tickets.filter((t) => visivel(u, t) && t.requesterId !== u.id));
-    const listSent = (u) => recentes(db.tickets.filter((t) => t.requesterId === u.id));
-    const listQueue = (u) => recentes(db.tickets.filter((t) => !t.assigneeId && t.status === "OPEN" && (u.role === "MANAGER" || t.departmentId === (u.departmentId ?? "__none__"))));
-    function podeVer(u, t) {
-        return u.role === "MANAGER" || (u.role === "AGENT" && t.departmentId === u.departmentId) || t.requesterId === u.id;
-    }
-    function registrarStatus(ticketId, de, para, por) {
-        if (de === para) return;
-        db.events.push({ id: novoId(), ticketId, fromStatus: de, toStatus: para, changedById: por, createdAt: Date.now() });
-    }
-    function marcarLido(userId, ticketId) {
-        const r = db.reads.find((x) => x.ticketId === ticketId && x.userId === userId);
-        if (r) r.lastReadAt = Date.now(); else db.reads.push({ ticketId, userId, lastReadAt: Date.now() });
-    }
-    function naoLidos(u) {
-        const set = new Set();
-        db.tickets.filter((t) => visivel(u, t)).forEach((t) => {
-            const msgs = db.messages.filter((m) => m.ticketId === t.id && (u.role !== "REQUESTER" || !m.isInternal));
-            const ultimaMsg = msgs.reduce((m, x) => Math.max(m, x.createdAt), 0);
-            const atividade = ultimaMsg > t.updatedAt ? ultimaMsg : t.updatedAt;
-            const lido = db.reads.find((r) => r.ticketId === t.id && r.userId === u.id);
-            if (!lido || atividade > lido.lastReadAt) set.add(t.id);
-        });
-        return set;
-    }
-    function mudarStatus(u, t, status) {
-        const de = t.status;
-        t.status = status;
-        if (status === "RESOLVED") t.resolvedAt = Date.now();
-        t.updatedAt = Date.now();
-        registrarStatus(t.id, de, status, u.id);
-        marcarLido(u.id, t.id);
-        salvar();
-    }
-    const atendentes = (u) => db.users.filter((x) => x.active && (x.role === "AGENT" || x.role === "MANAGER") && (u.role !== "AGENT" || x.departmentId === u.departmentId)).sort(porNome);
-
-    // ---------- Datas (date-fns com ptBR) ----------
-    const dois = (n) => String(n).padStart(2, "0");
-    const fmtData = (ms) => { const d = new Date(ms); return `${dois(d.getDate())}/${dois(d.getMonth() + 1)}/${d.getFullYear()}`; };
-    const fmtHora = (ms) => { const d = new Date(ms); return `${dois(d.getHours())}:${dois(d.getMinutes())}`; };
-    function distancia(ms) {
-        const seg = Math.max(0, (Date.now() - ms) / 1000), min = Math.round(seg / 60);
-        let t;
-        if (min < 1) t = "menos de um minuto";
-        else if (min < 2) t = "1 minuto";
-        else if (min < 45) t = `${min} minutos`;
-        else if (min < 90) t = "cerca de 1 hora";
-        else if (min < 1440) t = `cerca de ${Math.round(min / 60)} horas`;
-        else if (min < 2520) t = "1 dia";
-        else if (min < 43200) t = `${Math.round(min / 1440)} dias`;
-        else t = `cerca de ${Math.round(min / 43200)} meses`;
-        return "há " + t;
-    }
-    function duracao(ms) {
-        const s = Math.max(0, Math.floor(ms / 1000)), d = Math.floor(s / 86400), h = Math.floor((s % 86400) / 3600), m = Math.floor((s % 3600) / 60);
-        if (d > 0) return `${d} dia${d > 1 ? "s" : ""} ${h}h`;
-        if (h > 0) return `${h}h ${m}min`;
-        if (m > 0) return `${m} min ${s % 60}s`;
-        return `${s % 60}s`;
-    }
-
-    // ---------- Pedaços de interface ----------
-    const svg = (path, cls, sw = 2) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${sw}" stroke-linecap="round" stroke-linejoin="round" class="${cls}"><path d="${path}"/></svg>`;
-    const prioridade = (p) => `<span class="rounded-full px-2 py-0.5 text-[11px] font-medium ${PRIORITY_COLORS[p]}">${PRIORITY_LABELS[p]}</span>`;
-    const app = document.getElementById("app");
-
-    function shell(u, ativo, conteudo) {
-        const unread = naoLidos(u).size;
-        const itens = [
-            ["/home", "Home", "M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"],
-            ["/noticias", "Notícias", "M4 5h13a2 2 0 0 1 2 2v11a1 1 0 0 1-1.5.87L15 17H6a2 2 0 0 1-2-2V5Zm0 0v13a1 1 0 0 1-1.7.7L1 17.3M8 9h8M8 13h5"],
-            ["/chamados", "Chamados", "M4 4h16v12H7l-3 3V4Z", unread],
-        ];
-        if (u.role === "MANAGER") itens.push(["/configuracoes", "Configurações", "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8-3a8 8 0 0 0-.15-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.5 2h-5l-.35 2.7a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5A8 8 0 0 0 4 12c0 .5.05 1 .15 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5L9.5 22h5l.35-2.7a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.5c.1-.5.15-1 .15-1.5Z"]);
-        const roleBadge = { REQUESTER: "bg-white/10 text-slate-300", AGENT: "bg-blue-400/20 text-blue-300", MANAGER: "bg-brand-gold/20 text-brand-gold-light" }[u.role];
-        const logo = `<a href="#/home" class="flex items-center gap-2.5"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-gold-light to-brand-gold text-sm font-bold text-white shadow-sm">G</span><span class="text-base font-semibold tracking-tight text-white">Gestão de Chamados</span></a>`;
-        const lateral = `
+/* (c) 2026 Italo Eduardo. Todos os direitos reservados. Proibida a cópia, modificação ou uso sem autorização por escrito. */
+(function(){"use strict";const{Rota:g,esc:i,Local:W}=window.Demo,T={OPEN:"Novo",IN_PROGRESS:"Em Andamento",PENDING:"Pendente com Solicitante",RESOLVED:"Resolvido",CLOSED:"Encerrado"},F=["OPEN","IN_PROGRESS","PENDING","RESOLVED","CLOSED"],Y={LOW:"Baixa",MEDIUM:"Média",HIGH:"Alta",URGENT:"Urgente"},fe={LOW:"bg-slate-100 text-slate-700",MEDIUM:"bg-blue-100 text-blue-700",HIGH:"bg-amber-100 text-amber-700",URGENT:"bg-red-100 text-red-700"},H={OPEN:{icon:"M12 8v8M8 12h8M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z",iconBg:"bg-slate-100",iconText:"text-slate-500",chipBg:"bg-slate-100",chipText:"text-slate-600",cardAccent:"border-l-slate-400",gradient:"from-slate-400 to-slate-500"},IN_PROGRESS:{icon:"M21 12a9 9 0 1 1-3-6.7M21 4v5h-5",iconBg:"bg-blue-100",iconText:"text-blue-600",chipBg:"bg-blue-100",chipText:"text-blue-700",cardAccent:"border-l-blue-500",gradient:"from-blue-400 to-blue-600"},PENDING:{icon:"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 7v5l3 3",iconBg:"bg-amber-100",iconText:"text-amber-600",chipBg:"bg-amber-100",chipText:"text-amber-700",cardAccent:"border-l-amber-500",gradient:"from-amber-400 to-amber-500"},RESOLVED:{icon:"M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M8 12l3 3 5-6",iconBg:"bg-emerald-100",iconText:"text-emerald-600",chipBg:"bg-emerald-100",chipText:"text-emerald-700",cardAccent:"border-l-emerald-500",gradient:"from-emerald-400 to-emerald-600"},CLOSED:{icon:"M4 7h16M6 7v11a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V7M9 7V5a2 2 0 0 1 2-2h2a2 2 0 0 1 2 2v2",iconBg:"bg-slate-200",iconText:"text-slate-500",chipBg:"bg-slate-200",chipText:"text-slate-600",cardAccent:"border-l-slate-500",gradient:"from-slate-500 to-slate-600"}},oe={REQUESTER:"Solicitante",AGENT:"Atendente",MANAGER:"Gestor"},re=["bg-blue-500","bg-emerald-500","bg-amber-500","bg-rose-500","bg-violet-500","bg-cyan-500"],de=t=>{let a=0;for(let e=0;e<t.length;e++)a=(a+t.charCodeAt(e))%re.length;return re[a]},J=t=>t.split(" ").filter(Boolean).slice(0,2).map(a=>a[0].toUpperCase()).join(""),S=()=>crypto.randomUUID?crypto.randomUUID():String(Date.now())+Math.random().toString(16).slice(2),K="demo.gestao-chamados.v1";function le(){const t=Date.now(),a=36e5,e={id:"dep-ti",name:"TI"},s={id:"dep-rh",name:"RH"},o=[{id:"s1",departmentId:e.id,name:"Computador com defeito",defaultPriority:"HIGH"},{id:"s2",departmentId:e.id,name:"Acesso a sistema",defaultPriority:"MEDIUM"},{id:"s3",departmentId:e.id,name:"Internet / Rede",defaultPriority:"HIGH"},{id:"s4",departmentId:e.id,name:"Instalação de software",defaultPriority:"LOW"},{id:"s5",departmentId:s.id,name:"Dúvida sobre benefícios",defaultPriority:"LOW"}],n=[{id:"u-gestor",name:"Gestor TI",email:"gestor@exemplo.com",role:"MANAGER",departmentId:e.id,active:!0},{id:"u-atendente",name:"Atendente TI",email:"atendente@exemplo.com",role:"AGENT",departmentId:e.id,active:!0},{id:"u-usuario",name:"Usuário Teste",email:"usuario@exemplo.com",role:"REQUESTER",departmentId:null,active:!0}],l=["Ana Ribeiro","Bruno Lima","Carla Mendes","Diego Souza","Elisa Martins"].map((D,N)=>{const I={id:"u-sol"+N,name:D,email:D.toLowerCase().normalize("NFD").replace(/[̀-ͯ]/g,"").replace(" ",".")+"@exemplo.com",role:"REQUESTER",departmentId:null,active:!0};return n.push(I),I}),d=[{id:"n1",title:"Bem-vindo à Gestão de Chamados",authorId:"u-gestor",coverImageUrl:null,createdAt:t-26*a,content:"Esse é o novo sistema de chamados de TI e RH. Use o menu ao lado para abrir chamados, acompanhar novidades e, se você for gestor, cadastrar pessoas em Configurações."}],h=[["Notebook não liga após atualização","Depois da atualização de ontem o notebook não passa da tela preta.","s1","IN_PROGRESS","HIGH",1],["Sem acesso ao ERP","Minha senha do ERP expirou e não consigo redefinir.","s2","OPEN","MEDIUM",0],["Wi-Fi caindo na sala de reunião","A rede cai a cada 10 minutos na sala 2.","s3","PENDING","HIGH",3],["Instalar Power BI Desktop","Preciso do Power BI para os relatórios do mês.","s4","RESOLVED","LOW",6],["Impressora do financeiro offline","A impressora aparece como offline para todo o setor.","s1","OPEN","URGENT",0],["Liberar acesso à pasta de contratos","Entrei no jurídico e preciso da pasta compartilhada.","s2","IN_PROGRESS","MEDIUM",2],["Dúvida sobre vale-refeição","O valor do VR deste mês veio diferente.","s5","RESOLVED","LOW",8],["VPN não conecta de casa","Erro de autenticação ao conectar na VPN.","s3","OPEN","HIGH",1],["Monitor piscando","O segundo monitor fica piscando de tempos em tempos.","s1","CLOSED","MEDIUM",12],["Instalar pacote Office","Máquina nova sem o Office instalado.","s4","IN_PROGRESS","MEDIUM",2],["Criar usuário para estagiária","Estagiária começa segunda e precisa de e-mail e ERP.","s2","RESOLVED","MEDIUM",9],["Internet lenta no estoque","Coletores demorando para sincronizar no estoque.","s3","PENDING","MEDIUM",4]],v=[],u=[],R=[];return h.forEach(([D,N,I,y,w,C],r)=>{const m=t-C*24*a-(r+1)*a,p=o.find(Ge=>Ge.id===I),G=l[r%l.length],be=y==="RESOLVED"||y==="CLOSED",Z={id:"t"+(1001+r),number:1001+r,title:D,description:N,status:y,priority:w,departmentId:p.departmentId,subjectId:p.id,requesterId:G.id,assigneeId:y==="OPEN"?null:"u-atendente",createdAt:m,updatedAt:m+(y==="OPEN"?0:a),dueAt:m+(w==="URGENT"?4:w==="HIGH"?24:72)*a,resolvedAt:be?m+20*a:null};v.push(Z),R.push({id:S(),ticketId:Z.id,fromStatus:null,toStatus:"OPEN",changedById:G.id,createdAt:m}),y!=="OPEN"&&(u.push({id:S(),ticketId:Z.id,authorId:"u-atendente",isInternal:!1,createdAt:m+a,content:"Olá! Já estou verificando, te aviso assim que tiver novidade."}),R.push({id:S(),ticketId:Z.id,fromStatus:"OPEN",toStatus:y,changedById:be?"u-gestor":"u-atendente",createdAt:m+a}))}),{departments:[e,s],subjects:o,users:n,news:d,tickets:v,messages:u,events:R,reads:[]}}let c=W.ler(K,null)||le();const x=()=>W.gravar(K,c);x();const b=t=>c.users.find(a=>a.id===t),L=t=>c.departments.find(a=>a.id===t),k=t=>c.subjects.find(a=>a.id===t),_=t=>c.tickets.find(a=>a.id===t),O=(t,a)=>t.name.localeCompare(a.name,"pt-BR"),he=()=>{try{const t=b(sessionStorage.getItem("demo.chamados.usuario"));return t&&t.active?t:null}catch{return null}},ve=t=>{try{sessionStorage.setItem("demo.chamados.usuario",t)}catch{}},ge=()=>{try{sessionStorage.removeItem("demo.chamados.usuario")}catch{}};function V(t,a){return t.role==="MANAGER"?!0:t.role==="AGENT"?a.departmentId===(t.departmentId??"__none__"):a.requesterId===t.id}const z=t=>[...t].sort((a,e)=>e.createdAt-a.createdAt),X=t=>z(c.tickets.filter(a=>V(t,a))),ne=t=>z(c.tickets.filter(a=>V(t,a)&&a.requesterId!==t.id)),$e=t=>z(c.tickets.filter(a=>a.requesterId===t.id)),we=t=>z(c.tickets.filter(a=>!a.assigneeId&&a.status==="OPEN"&&(t.role==="MANAGER"||a.departmentId===(t.departmentId??"__none__"))));function ee(t,a){return t.role==="MANAGER"||t.role==="AGENT"&&a.departmentId===t.departmentId||a.requesterId===t.id}function U(t,a,e,s){a!==e&&c.events.push({id:S(),ticketId:t,fromStatus:a,toStatus:e,changedById:s,createdAt:Date.now()})}function q(t,a){const e=c.reads.find(s=>s.ticketId===a&&s.userId===t);e?e.lastReadAt=Date.now():c.reads.push({ticketId:a,userId:t,lastReadAt:Date.now()})}function Q(t){const a=new Set;return c.tickets.filter(e=>V(t,e)).forEach(e=>{const o=c.messages.filter(d=>d.ticketId===e.id&&(t.role!=="REQUESTER"||!d.isInternal)).reduce((d,h)=>Math.max(d,h.createdAt),0),n=o>e.updatedAt?o:e.updatedAt,l=c.reads.find(d=>d.ticketId===e.id&&d.userId===t.id);(!l||n>l.lastReadAt)&&a.add(e.id)}),a}function ie(t,a,e){const s=a.status;a.status=e,e==="RESOLVED"&&(a.resolvedAt=Date.now()),a.updatedAt=Date.now(),U(a.id,s,e,t.id),q(t.id,a.id),x()}const ce=t=>c.users.filter(a=>a.active&&(a.role==="AGENT"||a.role==="MANAGER")&&(t.role!=="AGENT"||a.departmentId===t.departmentId)).sort(O),A=t=>String(t).padStart(2,"0"),j=t=>{const a=new Date(t);return`${A(a.getDate())}/${A(a.getMonth()+1)}/${a.getFullYear()}`},P=t=>{const a=new Date(t);return`${A(a.getHours())}:${A(a.getMinutes())}`};function me(t){const a=Math.max(0,(Date.now()-t)/1e3),e=Math.round(a/60);let s;return e<1?s="menos de um minuto":e<2?s="1 minuto":e<45?s=`${e} minutos`:e<90?s="cerca de 1 hora":e<1440?s=`cerca de ${Math.round(e/60)} horas`:e<2520?s="1 dia":e<43200?s=`${Math.round(e/1440)} dias`:s=`cerca de ${Math.round(e/43200)} meses`,"há "+s}function Ee(t){const a=Math.max(0,Math.floor(t/1e3)),e=Math.floor(a/86400),s=Math.floor(a%86400/3600),o=Math.floor(a%3600/60);return e>0?`${e} dia${e>1?"s":""} ${s}h`:s>0?`${s}h ${o}min`:o>0?`${o} min ${a%60}s`:`${a%60}s`}const M=(t,a,e=2)=>`<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="${e}" stroke-linecap="round" stroke-linejoin="round" class="${a}"><path d="${t}"/></svg>`,B=t=>`<span class="rounded-full px-2 py-0.5 text-[11px] font-medium ${fe[t]}">${Y[t]}</span>`,f=document.getElementById("app");function E(t,a,e){const s=Q(t).size,o=[["/home","Home","M3 11.5 12 4l9 7.5M5 10v9a1 1 0 0 0 1 1h4v-6h4v6h4a1 1 0 0 0 1-1v-9"],["/noticias","Notícias","M4 5h13a2 2 0 0 1 2 2v11a1 1 0 0 1-1.5.87L15 17H6a2 2 0 0 1-2-2V5Zm0 0v13a1 1 0 0 1-1.7.7L1 17.3M8 9h8M8 13h5"],["/chamados","Chamados","M4 4h16v12H7l-3 3V4Z",s]];t.role==="MANAGER"&&o.push(["/configuracoes","Configurações","M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm8-3a8 8 0 0 0-.15-1.5l2-1.5-2-3.4-2.4 1a8 8 0 0 0-2.6-1.5L14.5 2h-5l-.35 2.7a8 8 0 0 0-2.6 1.5l-2.4-1-2 3.4 2 1.5A8 8 0 0 0 4 12c0 .5.05 1 .15 1.5l-2 1.5 2 3.4 2.4-1a8 8 0 0 0 2.6 1.5L9.5 22h5l.35-2.7a8 8 0 0 0 2.6-1.5l2.4 1 2-3.4-2-1.5c.1-.5.15-1 .15-1.5Z"]);const n={REQUESTER:"bg-white/10 text-slate-300",AGENT:"bg-blue-400/20 text-blue-300",MANAGER:"bg-brand-gold/20 text-brand-gold-light"}[t.role],l='<a href="#/home" class="flex items-center gap-2.5"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-gradient-to-br from-brand-gold-light to-brand-gold text-sm font-bold text-white shadow-sm">G</span><span class="text-base font-semibold tracking-tight text-white">Gestão de Chamados</span></a>',d=`
         <div class="flex h-full flex-col bg-brand-dark">
-            <div class="border-b border-white/10 px-4 py-4">${logo}</div>
-            <nav class="flex-1 overflow-y-auto px-2.5 py-4"><ul class="flex flex-col gap-0.5">${itens.map(([href, label, path, badge]) => {
-                const on = ativo === href || ativo.startsWith(href + "/");
-                return `<li><a href="#${href}" class="group relative flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${on ? "bg-white/10 text-white" : "text-slate-400 hover:bg-white/5 hover:text-slate-100"}">
-                    ${on ? `<span class="absolute -left-2.5 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r bg-brand-gold-light"></span>` : ""}
-                    <span class="flex items-center gap-2.5"><span class="${on ? "text-brand-gold-light" : "text-slate-500 group-hover:text-slate-300"}">${svg(path, "h-5 w-5 shrink-0", 1.8)}</span>${label}</span>
-                    ${badge ? `<span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">${badge > 9 ? "9+" : badge}</span>` : ""}</a></li>`;
-            }).join("")}</ul></nav>
+            <div class="border-b border-white/10 px-4 py-4">${l}</div>
+            <nav class="flex-1 overflow-y-auto px-2.5 py-4"><ul class="flex flex-col gap-0.5">${o.map(([u,R,D,N])=>{const I=a===u||a.startsWith(u+"/");return`<li><a href="#${u}" class="group relative flex items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${I?"bg-white/10 text-white":"text-slate-400 hover:bg-white/5 hover:text-slate-100"}">
+                    ${I?'<span class="absolute -left-2.5 top-1/2 h-5 w-1 -translate-y-1/2 rounded-r bg-brand-gold-light"></span>':""}
+                    <span class="flex items-center gap-2.5"><span class="${I?"text-brand-gold-light":"text-slate-500 group-hover:text-slate-300"}">${M(D,"h-5 w-5 shrink-0",1.8)}</span>${R}</span>
+                    ${N?`<span class="flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">${N>9?"9+":N}</span>`:""}</a></li>`}).join("")}</ul></nav>
             <div class="border-t border-white/10 px-4 py-3.5">
                 <div class="mb-2.5 flex items-center gap-2.5">
-                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white">${initials(u.name)}</span>
-                    <div class="min-w-0"><p class="truncate text-sm font-medium text-slate-100">${esc(u.name)}</p>
-                        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${roleBadge}">${ROLE_LABELS[u.role]}</span></div>
+                    <span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-white">${J(t.name)}</span>
+                    <div class="min-w-0"><p class="truncate text-sm font-medium text-slate-100">${i(t.name)}</p>
+                        <span class="inline-block rounded px-1.5 py-0.5 text-[10px] font-medium ${n}">${oe[t.role]}</span></div>
                 </div>
                 <button class="text-xs font-medium text-slate-500 transition-colors hover:text-white" data-acao="sair">Sair</button>
                 <p class="demo-aviso mt-2">Demonstração · o que você muda fica só neste navegador. <button data-acao="restaurar">Restaurar dados</button></p>
             </div>
-        </div>`;
-        app.innerHTML = `
+        </div>`;f.innerHTML=`
         <div class="flex min-h-screen bg-neutral-50">
-            <aside class="hidden w-56 shrink-0 sm:block">${lateral}</aside>
+            <aside class="hidden w-56 shrink-0 sm:block">${d}</aside>
             <div class="fixed inset-0 z-40 bg-black/40 backdrop-blur-[1px] sm:hidden" id="veu" hidden></div>
-            <aside class="fixed inset-y-0 left-0 z-50 w-64 transform shadow-xl transition-transform duration-200 sm:hidden -translate-x-full" id="gaveta">${lateral}</aside>
+            <aside class="fixed inset-y-0 left-0 z-50 w-64 transform shadow-xl transition-transform duration-200 sm:hidden -translate-x-full" id="gaveta">${d}</aside>
             <div class="flex min-w-0 flex-1 flex-col">
                 <div class="flex items-center justify-between bg-brand-dark px-4 py-3 sm:hidden">
-                    <button aria-label="Abrir menu" id="abrirMenu" class="text-slate-300 transition-colors hover:text-white">${svg("M4 6h16M4 12h16M4 18h16", "h-6 w-6", 1.8)}</button>
-                    ${logo}<span class="w-6"></span>
+                    <button aria-label="Abrir menu" id="abrirMenu" class="text-slate-300 transition-colors hover:text-white">${M("M4 6h16M4 12h16M4 18h16","h-6 w-6",1.8)}</button>
+                    ${l}<span class="w-6"></span>
                 </div>
-                <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">${conteudo}</main>
+                <main class="mx-auto w-full max-w-6xl flex-1 px-4 py-6 sm:px-6">${e}</main>
             </div>
-        </div>`;
-        const gaveta = document.getElementById("gaveta"), veu = document.getElementById("veu");
-        document.getElementById("abrirMenu").onclick = () => { gaveta.classList.replace("-translate-x-full", "translate-x-0"); veu.hidden = false; };
-        veu.onclick = () => { gaveta.classList.replace("translate-x-0", "-translate-x-full"); veu.hidden = true; };
-        app.querySelectorAll("[data-acao=sair]").forEach((b) => b.onclick = () => { sair(); Rota.ir("/login"); });
-        app.querySelectorAll("[data-acao=restaurar]").forEach((b) => b.onclick = () => {
-            if (!confirm("Voltar todos os chamados, usuários e notícias ao estado inicial da demonstração?")) return;
-            Local.apagar(CHAVE); db = seed(); salvar(); render();
-        });
-    }
-
-    // ---------- Telas ----------
-    function telaLogin(erro) {
-        app.innerHTML = `
+        </div>`;const h=document.getElementById("gaveta"),v=document.getElementById("veu");document.getElementById("abrirMenu").onclick=()=>{h.classList.replace("-translate-x-full","translate-x-0"),v.hidden=!1},v.onclick=()=>{h.classList.replace("translate-x-0","-translate-x-full"),v.hidden=!0},f.querySelectorAll("[data-acao=sair]").forEach(u=>u.onclick=()=>{ge(),g.ir("/login")}),f.querySelectorAll("[data-acao=restaurar]").forEach(u=>u.onclick=()=>{confirm("Voltar todos os chamados, usuários e notícias ao estado inicial da demonstração?")&&(W.apagar(K),c=le(),x(),$())})}function te(t){f.innerHTML=`
         <div class="relative flex min-h-screen items-center justify-center overflow-hidden bg-brand-dark px-4">
             <div aria-hidden="true" class="pointer-events-none absolute -left-32 -top-32 h-96 w-96 rounded-full bg-brand-gold/10 blur-3xl"></div>
             <div aria-hidden="true" class="pointer-events-none absolute -bottom-32 -right-32 h-96 w-96 rounded-full bg-brand-gold/10 blur-3xl"></div>
@@ -244,458 +43,182 @@
                         <input id="email" name="email" type="email" required autofocus class="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500" placeholder="voce@exemplo.com"></div>
                     <div class="flex flex-col gap-1"><label for="password" class="text-sm font-medium text-slate-700">Senha</label>
                         <input id="password" name="password" type="password" required class="rounded-md border border-slate-300 px-3 py-2 text-sm outline-none focus:border-slate-500"></div>
-                    ${erro ? `<p class="text-sm text-red-600">${esc(erro)}</p>` : ""}
+                    ${t?`<p class="text-sm text-red-600">${i(t)}</p>`:""}
                     <button type="submit" class="mt-2 rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white transition hover:bg-brand-dark-hover">Entrar</button>
                 </form>
                 <div class="demo-dica"><p class="text-xs text-slate-500">Demonstração: senha <b>123456</b>. Ou entre direto como:</p>
                     <div class="demo-perfis"><button data-email="gestor@exemplo.com">Gestor</button><button data-email="atendente@exemplo.com">Atendente</button><button data-email="usuario@exemplo.com">Solicitante</button></div></div>
             </div>
-        </div>`;
-        const form = document.getElementById("formLogin");
-        const tentar = (email, senha) => {
-            const u = db.users.find((x) => x.email.toLowerCase() === email.trim().toLowerCase());
-            if (!u || senha !== "123456") return telaLogin("E-mail ou senha inválidos.");
-            if (!u.active) return telaLogin("Usuário desativado.");
-            entrar(u.id); Rota.ir("/home");
-        };
-        form.onsubmit = (e) => { e.preventDefault(); tentar(form.email.value, form.password.value); };
-        app.querySelectorAll("[data-email]").forEach((b) => b.onclick = () => tentar(b.dataset.email, "123456"));
-    }
-
-    function telaHome(u) {
-        const unread = naoLidos(u).size;
-        const news = [...db.news].sort((a, b) => b.createdAt - a.createdAt).slice(0, 5);
-        const [destaque, ...resto] = news;
-        const apps = [["/noticias", "Notícias", "bg-emerald-500", "M4 5h13a2 2 0 0 1 2 2v11a1 1 0 0 1-1.5.87L15 17H6a2 2 0 0 1-2-2V5Zm0 0v13a1 1 0 0 1-1.7.7L1 17.3M8 9h8M8 13h5"], ["/chamados", "Chamados", "bg-blue-500", "M4 4h16v12H7l-3 3V4Z"]];
-        shell(u, "/home", `
+        </div>`;const a=document.getElementById("formLogin"),e=(s,o)=>{const n=c.users.find(l=>l.email.toLowerCase()===s.trim().toLowerCase());if(!n||o!=="123456")return te("E-mail ou senha inválidos.");if(!n.active)return te("Usuário desativado.");ve(n.id),g.ir("/home")};a.onsubmit=s=>{s.preventDefault(),e(a.email.value,a.password.value)},f.querySelectorAll("[data-email]").forEach(s=>s.onclick=()=>e(s.dataset.email,"123456"))}function Ie(t){const a=Q(t).size,e=[...c.news].sort((l,d)=>d.createdAt-l.createdAt).slice(0,5),[s,...o]=e;E(t,"/home",`
         <div class="flex flex-col gap-8">
             <div><h1 class="mb-4 text-lg font-semibold text-slate-900">Meus Aplicativos</h1>
-                <div class="flex flex-wrap gap-4">${apps.map(([href, label, cor, path]) => `
-                    <a href="#${href}" class="relative flex w-24 flex-col items-center gap-2 text-center">
-                        ${href === "/chamados" && unread > 0 ? `<span class="absolute -right-1 -top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">${unread > 9 ? "9+" : unread}</span>` : ""}
-                        <span class="flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-sm transition hover:opacity-90 ${cor}">${svg(path, "h-7 w-7", 1.8)}</span>
-                        <span class="text-xs font-medium text-slate-700">${label}</span></a>`).join("")}</div></div>
-            ${destaque ? `<div><h2 class="mb-4 text-lg font-semibold text-slate-900">Em destaque</h2>
-                <a href="#/noticias/${destaque.id}" class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:flex-row">
-                    ${destaque.coverImageUrl ? `<img src="${esc(destaque.coverImageUrl)}" alt="" class="h-48 w-full object-cover sm:h-auto sm:w-72 sm:shrink-0">` : `<div class="h-48 w-full bg-slate-100 sm:h-auto sm:w-72 sm:shrink-0"></div>`}
-                    <div class="flex flex-col gap-2 p-5"><h3 class="text-lg font-semibold text-slate-900">${esc(destaque.title)}</h3>
-                        <p class="line-clamp-3 text-sm text-slate-600">${esc(destaque.content)}</p>
-                        <p class="mt-auto text-xs text-slate-400">${fmtData(destaque.createdAt)} · Publicado por ${esc(user(destaque.authorId)?.name || "")}</p></div></a></div>` : ""}
+                <div class="flex flex-wrap gap-4">${[["/noticias","Notícias","bg-emerald-500","M4 5h13a2 2 0 0 1 2 2v11a1 1 0 0 1-1.5.87L15 17H6a2 2 0 0 1-2-2V5Zm0 0v13a1 1 0 0 1-1.7.7L1 17.3M8 9h8M8 13h5"],["/chamados","Chamados","bg-blue-500","M4 4h16v12H7l-3 3V4Z"]].map(([l,d,h,v])=>`
+                    <a href="#${l}" class="relative flex w-24 flex-col items-center gap-2 text-center">
+                        ${l==="/chamados"&&a>0?`<span class="absolute -right-1 -top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-red-500 px-1 text-[11px] font-semibold text-white">${a>9?"9+":a}</span>`:""}
+                        <span class="flex h-16 w-16 items-center justify-center rounded-2xl text-white shadow-sm transition hover:opacity-90 ${h}">${M(v,"h-7 w-7",1.8)}</span>
+                        <span class="text-xs font-medium text-slate-700">${d}</span></a>`).join("")}</div></div>
+            ${s?`<div><h2 class="mb-4 text-lg font-semibold text-slate-900">Em destaque</h2>
+                <a href="#/noticias/${s.id}" class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md sm:flex-row">
+                    ${s.coverImageUrl?`<img src="${i(s.coverImageUrl)}" alt="" class="h-48 w-full object-cover sm:h-auto sm:w-72 sm:shrink-0">`:'<div class="h-48 w-full bg-slate-100 sm:h-auto sm:w-72 sm:shrink-0"></div>'}
+                    <div class="flex flex-col gap-2 p-5"><h3 class="text-lg font-semibold text-slate-900">${i(s.title)}</h3>
+                        <p class="line-clamp-3 text-sm text-slate-600">${i(s.content)}</p>
+                        <p class="mt-auto text-xs text-slate-400">${j(s.createdAt)} · Publicado por ${i(b(s.authorId)?.name||"")}</p></div></a></div>`:""}
             <div><div class="mb-4 flex items-center justify-between"><h2 class="text-lg font-semibold text-slate-900">Notícias</h2><a href="#/noticias" class="text-sm font-medium text-slate-500 hover:text-slate-900">Ver todas</a></div>
-                ${resto.length === 0 ? `<p class="text-sm text-slate-400">${destaque ? "Sem outras notícias por enquanto." : "Nenhuma notícia publicada ainda."}</p>` : `
-                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">${resto.map((n) => `<a href="#/noticias/${n.id}" class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-                    ${n.coverImageUrl ? `<img src="${esc(n.coverImageUrl)}" alt="" class="h-32 w-full object-cover">` : `<div class="h-32 w-full bg-slate-100"></div>`}
-                    <div class="flex flex-1 flex-col gap-2 p-4"><h3 class="line-clamp-2 text-sm font-semibold text-slate-900">${esc(n.title)}</h3><p class="mt-auto text-xs text-slate-400">Publicado por ${esc(user(n.authorId)?.name || "")}</p></div></a>`).join("")}</div>`}
+                ${o.length===0?`<p class="text-sm text-slate-400">${s?"Sem outras notícias por enquanto.":"Nenhuma notícia publicada ainda."}</p>`:`
+                <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">${o.map(l=>`<a href="#/noticias/${l.id}" class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+                    ${l.coverImageUrl?`<img src="${i(l.coverImageUrl)}" alt="" class="h-32 w-full object-cover">`:'<div class="h-32 w-full bg-slate-100"></div>'}
+                    <div class="flex flex-1 flex-col gap-2 p-4"><h3 class="line-clamp-2 text-sm font-semibold text-slate-900">${i(l.title)}</h3><p class="mt-auto text-xs text-slate-400">Publicado por ${i(b(l.authorId)?.name||"")}</p></div></a>`).join("")}</div>`}
             </div>
-        </div>`);
-    }
-
-    function telaNoticias(u) {
-        const news = [...db.news].sort((a, b) => b.createdAt - a.createdAt);
-        shell(u, "/noticias", `
+        </div>`)}function ye(t){const a=[...c.news].sort((e,s)=>s.createdAt-e.createdAt);E(t,"/noticias",`
         <div class="mb-6 flex items-center justify-between"><h1 class="text-lg font-semibold text-slate-900">Notícias</h1>
-            ${u.role === "MANAGER" ? `<a href="#/noticias/novo" class="rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-dark-hover">+ Nova notícia</a>` : ""}</div>
-        ${news.length === 0 ? `<p class="text-sm text-slate-400">Nenhuma notícia publicada ainda.</p>` : `
-        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${news.map((n) => `<a href="#/noticias/${n.id}" class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
-            ${n.coverImageUrl ? `<img src="${esc(n.coverImageUrl)}" alt="" class="h-40 w-full object-cover">` : `<div class="h-40 w-full bg-slate-100"></div>`}
-            <div class="flex flex-1 flex-col gap-2 p-4"><h3 class="line-clamp-2 text-sm font-semibold text-slate-900">${esc(n.title)}</h3><p class="line-clamp-2 text-xs text-slate-500">${esc(n.content)}</p>
-                <p class="mt-auto text-xs text-slate-400">${fmtData(n.createdAt)} · Publicado por ${esc(user(n.authorId)?.name || "")}</p></div></a>`).join("")}</div>`}`);
-    }
-
-    function telaNoticia(u, id) {
-        const n = db.news.find((x) => x.id === id);
-        if (!n) return telaNaoEncontrado(u, "/noticias");
-        shell(u, "/noticias", `
+            ${t.role==="MANAGER"?'<a href="#/noticias/novo" class="rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-dark-hover">+ Nova notícia</a>':""}</div>
+        ${a.length===0?'<p class="text-sm text-slate-400">Nenhuma notícia publicada ainda.</p>':`
+        <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">${a.map(e=>`<a href="#/noticias/${e.id}" class="flex flex-col overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm transition hover:shadow-md">
+            ${e.coverImageUrl?`<img src="${i(e.coverImageUrl)}" alt="" class="h-40 w-full object-cover">`:'<div class="h-40 w-full bg-slate-100"></div>'}
+            <div class="flex flex-1 flex-col gap-2 p-4"><h3 class="line-clamp-2 text-sm font-semibold text-slate-900">${i(e.title)}</h3><p class="line-clamp-2 text-xs text-slate-500">${i(e.content)}</p>
+                <p class="mt-auto text-xs text-slate-400">${j(e.createdAt)} · Publicado por ${i(b(e.authorId)?.name||"")}</p></div></a>`).join("")}</div>`}`)}function Ae(t,a){const e=c.news.find(o=>o.id===a);if(!e)return xe(t,"/noticias");E(t,"/noticias",`
         <div class="mx-auto max-w-3xl">
-            ${n.coverImageUrl ? `<img src="${esc(n.coverImageUrl)}" alt="" class="mb-6 h-64 w-full rounded-xl object-cover">` : ""}
-            <div class="flex items-start justify-between gap-4"><h1 class="text-2xl font-semibold text-slate-900">${esc(n.title)}</h1>
-                ${u.role === "MANAGER" ? `<div class="flex shrink-0 gap-2"><button id="excluirNoticia" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Excluir</button></div>` : ""}</div>
-            <p class="mt-1 text-sm text-slate-400">${fmtData(n.createdAt)} às ${fmtHora(n.createdAt)} · Publicado por ${esc(user(n.authorId)?.name || "")}</p>
-            <p class="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">${esc(n.content)}</p>
-        </div>`);
-        const b = document.getElementById("excluirNoticia");
-        if (b) b.onclick = () => { if (confirm("Excluir esta notícia?")) { db.news = db.news.filter((x) => x.id !== id); salvar(); Rota.ir("/noticias"); } };
-    }
-
-    function telaNovaNoticia(u) {
-        if (u.role !== "MANAGER") return Rota.ir("/noticias");
-        shell(u, "/noticias", `
+            ${e.coverImageUrl?`<img src="${i(e.coverImageUrl)}" alt="" class="mb-6 h-64 w-full rounded-xl object-cover">`:""}
+            <div class="flex items-start justify-between gap-4"><h1 class="text-2xl font-semibold text-slate-900">${i(e.title)}</h1>
+                ${t.role==="MANAGER"?'<div class="flex shrink-0 gap-2"><button id="excluirNoticia" class="rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50">Excluir</button></div>':""}</div>
+            <p class="mt-1 text-sm text-slate-400">${j(e.createdAt)} às ${P(e.createdAt)} · Publicado por ${i(b(e.authorId)?.name||"")}</p>
+            <p class="mt-6 whitespace-pre-wrap text-sm leading-relaxed text-slate-700">${i(e.content)}</p>
+        </div>`);const s=document.getElementById("excluirNoticia");s&&(s.onclick=()=>{confirm("Excluir esta notícia?")&&(c.news=c.news.filter(o=>o.id!==a),x(),g.ir("/noticias"))})}function Se(t){if(t.role!=="MANAGER")return g.ir("/noticias");E(t,"/noticias",`
         <div class="max-w-xl"><h1 class="mb-6 text-lg font-semibold text-slate-900">Nova notícia</h1>
             <div class="rounded-xl border border-slate-200 bg-white p-6"><form class="flex flex-col gap-4" id="formNoticia">
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">Título</label><input name="title" required maxlength="150" class="rounded-md border border-slate-300 px-3 py-2 text-sm"></div>
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">URL da imagem de capa (opcional)</label><input name="coverImageUrl" type="url" placeholder="https://..." class="rounded-md border border-slate-300 px-3 py-2 text-sm"></div>
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">Conteúdo</label><textarea name="content" required rows="8" class="rounded-md border border-slate-300 px-3 py-2 text-sm"></textarea></div>
                 <button type="submit" class="mt-2 self-start rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover">Publicar</button>
-            </form></div></div>`);
-        const f = document.getElementById("formNoticia");
-        f.onsubmit = (e) => {
-            e.preventDefault();
-            const n = { id: novoId(), title: f.title.value.trim(), content: f.content.value.trim(), coverImageUrl: f.coverImageUrl.value.trim() || null, authorId: u.id, createdAt: Date.now() };
-            if (!n.title || !n.content) return;
-            db.news.push(n); salvar(); Rota.ir("/noticias/" + n.id);
-        };
-    }
-
-    // ----- Chamados: listas -----
-    function subNav(ativo) {
-        const tabs = [["/chamados", "Recebido"], ["/chamados/enviado", "Enviado"], ["/chamados/todos", "Todos"], ["/chamados/fila", "Fila"], ["/chamados/em-massa", "Em Massa"]];
-        return `<div class="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
-            <nav class="flex flex-wrap gap-1">${tabs.map(([href, label]) => `<a href="#${href}" class="border-b-2 px-3 py-2 text-sm font-medium transition-colors ${ativo === href ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500 hover:text-slate-900"}">${label}</a>`).join("")}</nav>
+            </form></div></div>`);const a=document.getElementById("formNoticia");a.onsubmit=e=>{e.preventDefault();const s={id:S(),title:a.title.value.trim(),content:a.content.value.trim(),coverImageUrl:a.coverImageUrl.value.trim()||null,authorId:t.id,createdAt:Date.now()};!s.title||!s.content||(c.news.push(s),x(),g.ir("/noticias/"+s.id))}}function ae(t){return`<div class="mb-6 flex flex-wrap items-center justify-between gap-3 border-b border-slate-200">
+            <nav class="flex flex-wrap gap-1">${[["/chamados","Recebido"],["/chamados/enviado","Enviado"],["/chamados/todos","Todos"],["/chamados/fila","Fila"],["/chamados/em-massa","Em Massa"]].map(([e,s])=>`<a href="#${e}" class="border-b-2 px-3 py-2 text-sm font-medium transition-colors ${t===e?"border-blue-600 text-blue-700":"border-transparent text-slate-500 hover:text-slate-900"}">${s}</a>`).join("")}</nav>
             <div class="flex items-center gap-2"><a href="#/chamados/novo" class="demo-novo">+ Novo chamado</a>
-            <button id="exportar" class="mb-2 flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50">${svg("M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2", "h-4 w-4")}Exportar CSV</button></div>
-        </div>`;
-    }
-    function ligarExportar(u) {
-        const b = document.getElementById("exportar");
-        if (!b) return;
-        b.onclick = () => {
-            const csvEsc = (v) => /[",\n]/.test(v) ? `"${v.replace(/"/g, '""')}"` : v;
-            const linhas = [["Título", "Status", "Prioridade", "Departamento", "Assunto", "Solicitante", "Responsável", "Aberto em", "Atualizado em"],
-                ...listTickets(u).map((t) => [t.title, STATUS_LABELS[t.status], PRIORITY_LABELS[t.priority], dept(t.departmentId).name, subj(t.subjectId).name,
-                    user(t.requesterId).name, t.assigneeId ? user(t.assigneeId).name : "", fmtData(t.createdAt) + " " + fmtHora(t.createdAt), fmtData(t.updatedAt) + " " + fmtHora(t.updatedAt)])];
-            const csv = "﻿" + linhas.map((l) => l.map((c) => csvEsc(String(c))).join(",")).join("\r\n");
-            const a = document.createElement("a");
-            a.href = URL.createObjectURL(new Blob([csv], { type: "text/csv;charset=utf-8" }));
-            const d = new Date();
-            a.download = `chamados-${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}.csv`;
-            a.click();
-            setTimeout(() => URL.revokeObjectURL(a.href), 1000);
-        };
-    }
-    function statusStats(tickets) {
-        return `<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">${STATUS_ORDER.map((s) => {
-            const th = STATUS_THEME[s];
-            return `<div class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
-                <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${th.gradient}"></div>
-                <div class="flex items-center gap-2.5"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${th.iconBg} ${th.iconText}">${svg(th.icon, "h-4 w-4")}</span>
-                    <div class="min-w-0"><p class="text-xl font-semibold leading-none text-slate-900">${tickets.filter((t) => t.status === s).length}</p><p class="mt-1 truncate text-[11px] text-slate-500">${STATUS_LABELS[s]}</p></div></div></div>`;
-        }).join("")}</div>`;
-    }
-    function board(tickets, editable, unread) {
-        const card = (t) => {
-            const th = STATUS_THEME[t.status], quem = t.assigneeId ? user(t.assigneeId).name : user(t.requesterId).name;
-            return `<div ${editable ? `draggable="true" data-id="${t.id}"` : ""} class="${editable ? "demo-card " : ""}group relative touch-none rounded-lg border-l-4 border-y border-r border-slate-200 bg-white p-3 shadow-sm transition-all ${th.cardAccent} hover:-translate-y-0.5 hover:shadow-md">
-                ${unread.has(t.id) ? `<span title="Tem atividade nova" class="absolute -right-1.5 -top-1.5 h-3 w-3 animate-pulse rounded-full bg-blue-500 ring-2 ring-white"></span>` : ""}
-                <a href="#/chamados/${t.id}" draggable="false" class="text-sm font-medium text-slate-900 group-hover:text-blue-700">${esc(t.title)}</a>
-                <p class="mt-1 line-clamp-2 text-xs text-slate-500">${esc(subj(t.subjectId).name)} · ${esc(dept(t.departmentId).name)}</p>
-                <div class="mt-2.5 flex items-center justify-between gap-2">${prioridade(t.priority)}
-                    <span class="flex items-center gap-1 truncate text-[11px] text-slate-400"><span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[9px] font-semibold text-slate-600">${quem.charAt(0).toUpperCase()}</span>${esc(quem)}</span></div>
-            </div>`;
-        };
-        return `<div class="grid grid-cols-1 gap-4 md:grid-cols-5">${STATUS_ORDER.map((s) => {
-            const th = STATUS_THEME[s], lista = tickets.filter((t) => t.status === s);
-            return `<div class="flex flex-col gap-3 rounded-xl border border-slate-200/70 bg-slate-50/60 p-2.5">
-                <div class="flex items-center justify-between px-0.5"><div class="flex items-center gap-2"><span class="flex h-6 w-6 items-center justify-center rounded-md ${th.iconBg} ${th.iconText}">${svg(th.icon, "h-3.5 w-3.5")}</span>
-                    <h2 class="text-sm font-semibold text-slate-700">${STATUS_LABELS[s]}</h2></div>
-                    <span class="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${th.chipBg} ${th.chipText}">${lista.length}</span></div>
-                <div class="flex min-h-28 flex-col gap-2 rounded-lg p-1 transition" data-coluna="${s}">
-                    ${lista.length === 0 ? `<div class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">Vazio</div>` : ""}
-                    ${lista.map(card).join("")}</div></div>`;
-        }).join("")}</div>`;
-    }
-    function ligarArrastar(u) {
-        let arrastando = null;
-        app.querySelectorAll("[data-id][draggable]").forEach((c) => {
-            c.addEventListener("dragstart", (e) => { arrastando = c.dataset.id; e.dataTransfer.effectAllowed = "move"; e.dataTransfer.setData("text/plain", arrastando); setTimeout(() => c.classList.add("demo-arrastando")); });
-            c.addEventListener("dragend", () => { c.classList.remove("demo-arrastando"); arrastando = null; });
-        });
-        app.querySelectorAll("[data-coluna]").forEach((col) => {
-            col.addEventListener("dragover", (e) => { if (arrastando) { e.preventDefault(); col.classList.add("demo-sobre"); } });
-            col.addEventListener("dragleave", () => col.classList.remove("demo-sobre"));
-            col.addEventListener("drop", (e) => {
-                e.preventDefault(); col.classList.remove("demo-sobre");
-                const t = ticket(e.dataTransfer.getData("text/plain"));
-                if (t && t.status !== col.dataset.coluna && podeVer(u, t)) { mudarStatus(u, t, col.dataset.coluna); render(); }
-            });
-        });
-    }
-    function telaLista(u, caminho) {
-        const req = u.role === "REQUESTER";
-        if (req && caminho !== "/chamados") return Rota.ir("/chamados");
-        const unread = naoLidos(u);
-        let titulo, tickets, editable, vazio = "Nenhum chamado por aqui ainda.";
-        if (caminho === "/chamados/enviado") { titulo = "Enviado"; tickets = listSent(u); editable = false; vazio = "Você ainda não abriu nenhum chamado."; }
-        else if (caminho === "/chamados/todos") { titulo = "Todos"; tickets = listTickets(u); editable = true; }
-        else { titulo = req ? "Meus chamados" : "Recebido"; tickets = req ? listTickets(u) : listReceived(u); editable = !req; }
-        shell(u, "/chamados", `<div>${req ? "" : subNav(caminho)}
-            ${req ? `<div class="flex items-center justify-between"><h1 class="mb-4 text-lg font-semibold text-slate-900">${titulo}</h1><a href="#/chamados/novo" class="demo-novo">+ Novo chamado</a></div>` : `<h1 class="mb-4 text-lg font-semibold text-slate-900">${titulo}</h1>`}
-            ${statusStats(tickets)}
-            ${tickets.length === 0 ? `<p class="text-sm text-slate-500">${vazio}</p>` : ""}
-            ${board(tickets, editable, unread)}</div>`);
-        ligarExportar(u);
-        if (editable) ligarArrastar(u);
-    }
-    function telaFila(u) {
-        if (u.role === "REQUESTER") return Rota.ir("/chamados");
-        const unread = naoLidos(u), tickets = listQueue(u);
-        shell(u, "/chamados", `<div>${subNav("/chamados/fila")}
-            <div class="mb-5 flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600">${svg("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 7v5l3 3", "h-5 w-5")}</span>
-                <div><h1 class="text-lg font-semibold text-slate-900">Fila</h1><p class="text-sm text-slate-500">${tickets.length} chamado(s) novo(s), ainda sem responsável</p></div></div>
-            ${tickets.length === 0 ? `<div class="rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center"><p class="text-sm text-slate-400">A fila está vazia 🎉</p></div>` : ""}
-            <div class="flex flex-col gap-2.5">${tickets.map((t) => `
-                <div class="relative flex flex-col gap-3 rounded-xl border-l-4 border-y border-r bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between ${unread.has(t.id) ? "border-l-blue-500 border-y-blue-200 border-r-blue-200" : "border-l-amber-400 border-y-slate-200 border-r-slate-200"}">
-                    <div class="min-w-0"><div class="flex items-center gap-2">${unread.has(t.id) ? `<span title="Tem atividade nova" class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-500"></span>` : ""}
-                        <a href="#/chamados/${t.id}" class="text-sm font-medium text-slate-900 hover:text-blue-700">${esc(t.title)}</a></div>
-                        <p class="mt-1 text-xs text-slate-500">${esc(subj(t.subjectId).name)} · ${esc(dept(t.departmentId).name)} · aberto por ${esc(user(t.requesterId).name)} · ${distancia(t.createdAt)}</p></div>
-                    <div class="flex shrink-0 items-center gap-3">${prioridade(t.priority)}<button data-assumir="${t.id}" class="shrink-0 rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-black/20 transition hover:bg-brand-dark-hover">Assumir chamado</button></div>
-                </div>`).join("")}</div></div>`);
-        ligarExportar(u);
-        ligarAssumir(u);
-    }
-    function ligarAssumir(u) {
-        app.querySelectorAll("[data-assumir]").forEach((b) => b.onclick = () => {
-            const t = ticket(b.dataset.assumir);
-            if (!t || !podeVer(u, t)) return;
-            const de = t.status;
-            t.assigneeId = u.id; t.status = "IN_PROGRESS"; t.updatedAt = Date.now();
-            registrarStatus(t.id, de, "IN_PROGRESS", u.id); marcarLido(u.id, t.id); salvar(); render();
-        });
-    }
-    function telaEmMassa(u) {
-        if (u.role === "REQUESTER") return Rota.ir("/chamados");
-        const tickets = listReceived(u), agents = atendentes(u);
-        const sel = new Set();
-        let msg = null;
-        const desenhar = () => {
-            shell(u, "/chamados", `<div>${subNav("/chamados/em-massa")}
+            <button id="exportar" class="mb-2 flex items-center gap-1.5 rounded-md border border-slate-300 px-3 py-1.5 text-sm font-medium text-slate-600 transition-colors hover:border-slate-400 hover:bg-slate-50">${M("M12 3v12m0 0-4-4m4 4 4-4M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2","h-4 w-4")}Exportar CSV</button></div>
+        </div>`}function se(t){const a=document.getElementById("exportar");a&&(a.onclick=()=>{const e=d=>/[",\n]/.test(d)?`"${d.replace(/"/g,'""')}"`:d,o="\uFEFF"+[["Título","Status","Prioridade","Departamento","Assunto","Solicitante","Responsável","Aberto em","Atualizado em"],...X(t).map(d=>[d.title,T[d.status],Y[d.priority],L(d.departmentId).name,k(d.subjectId).name,b(d.requesterId).name,d.assigneeId?b(d.assigneeId).name:"",j(d.createdAt)+" "+P(d.createdAt),j(d.updatedAt)+" "+P(d.updatedAt)])].map(d=>d.map(h=>e(String(h))).join(",")).join(`\r
+`),n=document.createElement("a");n.href=URL.createObjectURL(new Blob([o],{type:"text/csv;charset=utf-8"}));const l=new Date;n.download=`chamados-${l.getFullYear()}-${A(l.getMonth()+1)}-${A(l.getDate())}.csv`,n.click(),setTimeout(()=>URL.revokeObjectURL(n.href),1e3)})}function Re(t){return`<div class="mb-5 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">${F.map(a=>{const e=H[a];return`<div class="relative overflow-hidden rounded-xl border border-slate-200 bg-white p-3.5 shadow-sm">
+                <div class="absolute inset-x-0 top-0 h-1 bg-gradient-to-r ${e.gradient}"></div>
+                <div class="flex items-center gap-2.5"><span class="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${e.iconBg} ${e.iconText}">${M(e.icon,"h-4 w-4")}</span>
+                    <div class="min-w-0"><p class="text-xl font-semibold leading-none text-slate-900">${t.filter(s=>s.status===a).length}</p><p class="mt-1 truncate text-[11px] text-slate-500">${T[a]}</p></div></div></div>`}).join("")}</div>`}function Ne(t,a,e){const s=o=>{const n=H[o.status],l=o.assigneeId?b(o.assigneeId).name:b(o.requesterId).name;return`<div ${a?`draggable="true" data-id="${o.id}"`:""} class="${a?"demo-card ":""}group relative touch-none rounded-lg border-l-4 border-y border-r border-slate-200 bg-white p-3 shadow-sm transition-all ${n.cardAccent} hover:-translate-y-0.5 hover:shadow-md">
+                ${e.has(o.id)?'<span title="Tem atividade nova" class="absolute -right-1.5 -top-1.5 h-3 w-3 animate-pulse rounded-full bg-blue-500 ring-2 ring-white"></span>':""}
+                <a href="#/chamados/${o.id}" draggable="false" class="text-sm font-medium text-slate-900 group-hover:text-blue-700">${i(o.title)}</a>
+                <p class="mt-1 line-clamp-2 text-xs text-slate-500">${i(k(o.subjectId).name)} · ${i(L(o.departmentId).name)}</p>
+                <div class="mt-2.5 flex items-center justify-between gap-2">${B(o.priority)}
+                    <span class="flex items-center gap-1 truncate text-[11px] text-slate-400"><span class="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-slate-200 text-[9px] font-semibold text-slate-600">${l.charAt(0).toUpperCase()}</span>${i(l)}</span></div>
+            </div>`};return`<div class="grid grid-cols-1 gap-4 md:grid-cols-5">${F.map(o=>{const n=H[o],l=t.filter(d=>d.status===o);return`<div class="flex flex-col gap-3 rounded-xl border border-slate-200/70 bg-slate-50/60 p-2.5">
+                <div class="flex items-center justify-between px-0.5"><div class="flex items-center gap-2"><span class="flex h-6 w-6 items-center justify-center rounded-md ${n.iconBg} ${n.iconText}">${M(n.icon,"h-3.5 w-3.5")}</span>
+                    <h2 class="text-sm font-semibold text-slate-700">${T[o]}</h2></div>
+                    <span class="flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] font-semibold ${n.chipBg} ${n.chipText}">${l.length}</span></div>
+                <div class="flex min-h-28 flex-col gap-2 rounded-lg p-1 transition" data-coluna="${o}">
+                    ${l.length===0?'<div class="flex flex-1 items-center justify-center rounded-lg border border-dashed border-slate-200 py-6 text-center text-xs text-slate-300">Vazio</div>':""}
+                    ${l.map(s).join("")}</div></div>`}).join("")}</div>`}function ke(t){let a=null;f.querySelectorAll("[data-id][draggable]").forEach(e=>{e.addEventListener("dragstart",s=>{a=e.dataset.id,s.dataTransfer.effectAllowed="move",s.dataTransfer.setData("text/plain",a),setTimeout(()=>e.classList.add("demo-arrastando"))}),e.addEventListener("dragend",()=>{e.classList.remove("demo-arrastando"),a=null})}),f.querySelectorAll("[data-coluna]").forEach(e=>{e.addEventListener("dragover",s=>{a&&(s.preventDefault(),e.classList.add("demo-sobre"))}),e.addEventListener("dragleave",()=>e.classList.remove("demo-sobre")),e.addEventListener("drop",s=>{s.preventDefault(),e.classList.remove("demo-sobre");const o=_(s.dataTransfer.getData("text/plain"));o&&o.status!==e.dataset.coluna&&ee(t,o)&&(ie(t,o,e.dataset.coluna),$())})})}function je(t,a){const e=t.role==="REQUESTER";if(e&&a!=="/chamados")return g.ir("/chamados");const s=Q(t);let o,n,l,d="Nenhum chamado por aqui ainda.";a==="/chamados/enviado"?(o="Enviado",n=$e(t),l=!1,d="Você ainda não abriu nenhum chamado."):a==="/chamados/todos"?(o="Todos",n=X(t),l=!0):(o=e?"Meus chamados":"Recebido",n=e?X(t):ne(t),l=!e),E(t,"/chamados",`<div>${e?"":ae(a)}
+            ${e?`<div class="flex items-center justify-between"><h1 class="mb-4 text-lg font-semibold text-slate-900">${o}</h1><a href="#/chamados/novo" class="demo-novo">+ Novo chamado</a></div>`:`<h1 class="mb-4 text-lg font-semibold text-slate-900">${o}</h1>`}
+            ${Re(n)}
+            ${n.length===0?`<p class="text-sm text-slate-500">${d}</p>`:""}
+            ${Ne(n,l,s)}</div>`),se(t),l&&ke(t)}function Me(t){if(t.role==="REQUESTER")return g.ir("/chamados");const a=Q(t),e=we(t);E(t,"/chamados",`<div>${ae("/chamados/fila")}
+            <div class="mb-5 flex items-center gap-3"><span class="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-600">${M("M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18Z M12 7v5l3 3","h-5 w-5")}</span>
+                <div><h1 class="text-lg font-semibold text-slate-900">Fila</h1><p class="text-sm text-slate-500">${e.length} chamado(s) novo(s), ainda sem responsável</p></div></div>
+            ${e.length===0?'<div class="rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center"><p class="text-sm text-slate-400">A fila está vazia 🎉</p></div>':""}
+            <div class="flex flex-col gap-2.5">${e.map(s=>`
+                <div class="relative flex flex-col gap-3 rounded-xl border-l-4 border-y border-r bg-white p-4 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md sm:flex-row sm:items-center sm:justify-between ${a.has(s.id)?"border-l-blue-500 border-y-blue-200 border-r-blue-200":"border-l-amber-400 border-y-slate-200 border-r-slate-200"}">
+                    <div class="min-w-0"><div class="flex items-center gap-2">${a.has(s.id)?'<span title="Tem atividade nova" class="h-2 w-2 shrink-0 animate-pulse rounded-full bg-blue-500"></span>':""}
+                        <a href="#/chamados/${s.id}" class="text-sm font-medium text-slate-900 hover:text-blue-700">${i(s.title)}</a></div>
+                        <p class="mt-1 text-xs text-slate-500">${i(k(s.subjectId).name)} · ${i(L(s.departmentId).name)} · aberto por ${i(b(s.requesterId).name)} · ${me(s.createdAt)}</p></div>
+                    <div class="flex shrink-0 items-center gap-3">${B(s.priority)}<button data-assumir="${s.id}" class="shrink-0 rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-black/20 transition hover:bg-brand-dark-hover">Assumir chamado</button></div>
+                </div>`).join("")}</div></div>`),se(t),ue(t)}function ue(t){f.querySelectorAll("[data-assumir]").forEach(a=>a.onclick=()=>{const e=_(a.dataset.assumir);if(!e||!ee(t,e))return;const s=e.status;e.assigneeId=t.id,e.status="IN_PROGRESS",e.updatedAt=Date.now(),U(e.id,s,"IN_PROGRESS",t.id),q(t.id,e.id),x(),$()})}function De(t){if(t.role==="REQUESTER")return g.ir("/chamados");const a=ne(t),e=ce(t),s=new Set;let o=null;const n=()=>{E(t,"/chamados",`<div>${ae("/chamados/em-massa")}
                 <h1 class="mb-1 text-lg font-semibold text-slate-900">Em Massa</h1>
                 <p class="mb-4 text-sm text-slate-500">Selecione vários chamados e distribua para um atendente de uma vez.</p>
-                ${agents.length === 0 ? `<p class="text-sm text-slate-500">Nenhum atendente disponível pra receber chamados.</p>` : `
+                ${e.length===0?'<p class="text-sm text-slate-500">Nenhum atendente disponível pra receber chamados.</p>':`
                 <div class="mb-4 flex flex-col gap-3 rounded-xl border border-slate-200 bg-white p-4 sm:flex-row sm:items-center sm:justify-between">
-                    <p class="text-sm text-slate-600">${sel.size} de ${tickets.length} selecionado(s)</p>
-                    <div class="flex items-center gap-2"><select id="agente" class="rounded-md border border-slate-300 px-3 py-2 text-sm">${agents.map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select>
-                        <button id="distribuir" ${sel.size === 0 ? "disabled" : ""} class="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover disabled:opacity-50">Distribuir</button></div></div>
-                ${msg ? `<p class="mb-4 text-sm text-slate-600">${esc(msg)}</p>` : ""}
+                    <p class="text-sm text-slate-600">${s.size} de ${a.length} selecionado(s)</p>
+                    <div class="flex items-center gap-2"><select id="agente" class="rounded-md border border-slate-300 px-3 py-2 text-sm">${e.map(d=>`<option value="${d.id}">${i(d.name)}</option>`).join("")}</select>
+                        <button id="distribuir" ${s.size===0?"disabled":""} class="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover disabled:opacity-50">Distribuir</button></div></div>
+                ${o?`<p class="mb-4 text-sm text-slate-600">${i(o)}</p>`:""}
                 <div class="overflow-hidden rounded-xl border border-slate-200 bg-white"><table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
-                    <th class="w-10 px-4 py-3"><input type="checkbox" id="todos" ${sel.size === tickets.length && tickets.length > 0 ? "checked" : ""}></th><th class="px-4 py-3 font-medium">Título</th><th class="px-4 py-3 font-medium">Status</th><th class="px-4 py-3 font-medium">Prioridade</th><th class="px-4 py-3 font-medium">Responsável atual</th></tr></thead>
-                <tbody>${tickets.map((t) => `<tr class="border-b border-slate-100 last:border-0"><td class="px-4 py-3"><input type="checkbox" data-sel="${t.id}" ${sel.has(t.id) ? "checked" : ""}></td>
-                    <td class="px-4 py-3"><a href="#/chamados/${t.id}" class="font-medium text-slate-800 hover:underline">${esc(t.title)}</a><p class="text-xs text-slate-400">${esc(subj(t.subjectId).name)} · ${esc(dept(t.departmentId).name)}</p></td>
-                    <td class="px-4 py-3 text-slate-600">${STATUS_LABELS[t.status]}</td><td class="px-4 py-3">${prioridade(t.priority)}</td><td class="px-4 py-3 text-slate-600">${t.assigneeId ? esc(user(t.assigneeId).name) : "—"}</td></tr>`).join("")}
-                ${tickets.length === 0 ? `<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Nenhum chamado por aqui.</td></tr>` : ""}</tbody></table></div>`}</div>`);
-            ligarExportar(u);
-            const ag = document.getElementById("agente");
-            if (!ag) return;
-            app.querySelectorAll("[data-sel]").forEach((c) => c.onchange = () => { c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); msg = null; desenhar(); });
-            document.getElementById("todos").onchange = () => { if (sel.size === tickets.length) sel.clear(); else tickets.forEach((t) => sel.add(t.id)); msg = null; desenhar(); };
-            document.getElementById("distribuir").onclick = () => {
-                const agente = ag.value, n = sel.size;
-                sel.forEach((id) => { const t = ticket(id); if (!t || !visivel(u, t)) return; const de = t.status; t.assigneeId = agente; t.status = "IN_PROGRESS"; t.updatedAt = Date.now(); registrarStatus(t.id, de, "IN_PROGRESS", u.id); });
-                salvar(); sel.clear(); msg = `${n} chamado(s) atribuído(s) com sucesso.`; desenhar();
-            };
-        };
-        desenhar();
-    }
-
-    function telaNovo(u) {
-        const deps = [...db.departments].sort(porNome);
-        shell(u, "/chamados", `
+                    <th class="w-10 px-4 py-3"><input type="checkbox" id="todos" ${s.size===a.length&&a.length>0?"checked":""}></th><th class="px-4 py-3 font-medium">Título</th><th class="px-4 py-3 font-medium">Status</th><th class="px-4 py-3 font-medium">Prioridade</th><th class="px-4 py-3 font-medium">Responsável atual</th></tr></thead>
+                <tbody>${a.map(d=>`<tr class="border-b border-slate-100 last:border-0"><td class="px-4 py-3"><input type="checkbox" data-sel="${d.id}" ${s.has(d.id)?"checked":""}></td>
+                    <td class="px-4 py-3"><a href="#/chamados/${d.id}" class="font-medium text-slate-800 hover:underline">${i(d.title)}</a><p class="text-xs text-slate-400">${i(k(d.subjectId).name)} · ${i(L(d.departmentId).name)}</p></td>
+                    <td class="px-4 py-3 text-slate-600">${T[d.status]}</td><td class="px-4 py-3">${B(d.priority)}</td><td class="px-4 py-3 text-slate-600">${d.assigneeId?i(b(d.assigneeId).name):"—"}</td></tr>`).join("")}
+                ${a.length===0?'<tr><td colspan="5" class="px-4 py-6 text-center text-slate-400">Nenhum chamado por aqui.</td></tr>':""}</tbody></table></div>`}</div>`),se(t);const l=document.getElementById("agente");l&&(f.querySelectorAll("[data-sel]").forEach(d=>d.onchange=()=>{d.checked?s.add(d.dataset.sel):s.delete(d.dataset.sel),o=null,n()}),document.getElementById("todos").onchange=()=>{s.size===a.length?s.clear():a.forEach(d=>s.add(d.id)),o=null,n()},document.getElementById("distribuir").onclick=()=>{const d=l.value,h=s.size;s.forEach(v=>{const u=_(v);if(!u||!V(t,u))return;const R=u.status;u.assigneeId=d,u.status="IN_PROGRESS",u.updatedAt=Date.now(),U(u.id,R,"IN_PROGRESS",t.id)}),x(),s.clear(),o=`${h} chamado(s) atribuído(s) com sucesso.`,n()})};n()}function Le(t){const a=[...c.departments].sort(O);E(t,"/chamados",`
         <div class="max-w-xl"><h1 class="mb-6 text-lg font-semibold text-slate-900">Abrir novo chamado</h1>
             <div class="rounded-xl border border-slate-200 bg-white p-6"><form class="flex flex-col gap-4" id="formNovo">
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">Departamento</label>
-                    <select name="departmentId" required class="rounded-md border border-slate-300 px-3 py-2 text-sm">${deps.map((d) => `<option value="${d.id}">${esc(d.name)}</option>`).join("")}</select></div>
+                    <select name="departmentId" required class="rounded-md border border-slate-300 px-3 py-2 text-sm">${a.map(o=>`<option value="${o.id}">${i(o.name)}</option>`).join("")}</select></div>
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">Assunto</label><select name="subjectId" required class="rounded-md border border-slate-300 px-3 py-2 text-sm"></select></div>
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">Título</label><input name="title" required maxlength="120" placeholder="Resumo curto do problema" class="rounded-md border border-slate-300 px-3 py-2 text-sm"></div>
                 <div class="flex flex-col gap-1"><label class="text-sm font-medium text-slate-700">Descrição</label><textarea name="description" required rows="5" placeholder="Descreva o problema com o máximo de detalhes possível" class="rounded-md border border-slate-300 px-3 py-2 text-sm"></textarea></div>
                 <button type="submit" class="mt-2 self-start rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover">Abrir chamado</button>
-            </form></div></div>`);
-        const f = document.getElementById("formNovo");
-        const preencher = () => { f.subjectId.innerHTML = db.subjects.filter((s) => s.departmentId === f.departmentId.value).sort(porNome).map((s) => `<option value="${s.id}">${esc(s.name)}</option>`).join(""); };
-        f.departmentId.onchange = preencher; preencher();
-        f.onsubmit = (e) => {
-            e.preventDefault();
-            const s = subj(f.subjectId.value), title = f.title.value.trim(), description = f.description.value.trim();
-            if (!s || !title || !description) return;
-            const agora = Date.now();
-            const t = { id: novoId(), number: Math.max(100000, ...db.tickets.map((x) => x.number)) + 1, title, description, status: "OPEN", priority: s.defaultPriority,
-                departmentId: f.departmentId.value, subjectId: s.id, requesterId: u.id, assigneeId: null, createdAt: agora, updatedAt: agora, dueAt: null, resolvedAt: null };
-            db.tickets.push(t);
-            registrarStatus(t.id, null, "OPEN", u.id); marcarLido(u.id, t.id); salvar();
-            Rota.ir("/chamados/" + t.id);
-        };
-    }
-
-    function telaChamado(u, id) {
-        const t = ticket(id);
-        if (!t || !podeVer(u, t)) return telaNaoEncontrado(u, "/chamados");
-        marcarLido(u.id, t.id); salvar(); // MarkRead do original
-        const canManage = u.role !== "REQUESTER";
-        const msgs = db.messages.filter((m) => m.ticketId === t.id).sort((a, b) => a.createdAt - b.createdAt);
-        const visiveis = msgs.filter((m) => canManage || !m.isInternal);
-        const audiencia = new Set([t.requesterId, ...(t.assigneeId ? [t.assigneeId] : []), ...msgs.map((m) => m.authorId)]);
-        const leituras = new Map(db.reads.filter((r) => r.ticketId === t.id).map((r) => [r.userId, r.lastReadAt]));
-        const recibo = (m) => {
-            const ids = [...audiencia].filter((uid) => uid !== m.authorId && !(m.isInternal && uid === t.requesterId));
-            return { total: ids.length, seen: ids.filter((uid) => leituras.get(uid) >= m.createdAt).length };
-        };
-        const atrasado = t.dueAt && t.dueAt < Date.now() && t.status !== "RESOLVED" && t.status !== "CLOSED";
-        const eventos = db.events.filter((e) => e.ticketId === t.id).sort((a, b) => a.createdAt - b.createdAt).reverse();
-        const ACTIVE = { OPEN: "bg-slate-800 border-slate-800 text-white shadow-sm shadow-slate-300", IN_PROGRESS: "bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-200", PENDING: "bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-200", RESOLVED: "bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200", CLOSED: "bg-slate-500 border-slate-500 text-white shadow-sm shadow-slate-300" };
-        const IDLE = { OPEN: "border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50", IN_PROGRESS: "border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50", PENDING: "border-amber-200 text-amber-700 hover:border-amber-300 hover:bg-amber-50", RESOLVED: "border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50", CLOSED: "border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50" };
-        const dueLocal = t.dueAt ? (() => { const d = new Date(t.dueAt); return `${d.getFullYear()}-${dois(d.getMonth() + 1)}-${dois(d.getDate())}T${dois(d.getHours())}:${dois(d.getMinutes())}`; })() : "";
-        const btnAcao = "rounded-md border border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700";
-        const salvarBtn = `<button type="submit" class="rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-dark-hover">Salvar</button>`;
-        shell(u, "/chamados", `
+            </form></div></div>`);const e=document.getElementById("formNovo"),s=()=>{e.subjectId.innerHTML=c.subjects.filter(o=>o.departmentId===e.departmentId.value).sort(O).map(o=>`<option value="${o.id}">${i(o.name)}</option>`).join("")};e.departmentId.onchange=s,s(),e.onsubmit=o=>{o.preventDefault();const n=k(e.subjectId.value),l=e.title.value.trim(),d=e.description.value.trim();if(!n||!l||!d)return;const h=Date.now(),v={id:S(),number:Math.max(1e5,...c.tickets.map(u=>u.number))+1,title:l,description:d,status:"OPEN",priority:n.defaultPriority,departmentId:e.departmentId.value,subjectId:n.id,requesterId:t.id,assigneeId:null,createdAt:h,updatedAt:h,dueAt:null,resolvedAt:null};c.tickets.push(v),U(v.id,null,"OPEN",t.id),q(t.id,v.id),x(),g.ir("/chamados/"+v.id)}}function Oe(t,a){const e=_(a);if(!e||!ee(t,e))return xe(t,"/chamados");q(t.id,e.id),x();const s=t.role!=="REQUESTER",o=c.messages.filter(r=>r.ticketId===e.id).sort((r,m)=>r.createdAt-m.createdAt),n=o.filter(r=>s||!r.isInternal),l=new Set([e.requesterId,...e.assigneeId?[e.assigneeId]:[],...o.map(r=>r.authorId)]),d=new Map(c.reads.filter(r=>r.ticketId===e.id).map(r=>[r.userId,r.lastReadAt])),h=r=>{const m=[...l].filter(p=>p!==r.authorId&&!(r.isInternal&&p===e.requesterId));return{total:m.length,seen:m.filter(p=>d.get(p)>=r.createdAt).length}},v=e.dueAt&&e.dueAt<Date.now()&&e.status!=="RESOLVED"&&e.status!=="CLOSED",u=c.events.filter(r=>r.ticketId===e.id).sort((r,m)=>r.createdAt-m.createdAt).reverse(),R={OPEN:"bg-slate-800 border-slate-800 text-white shadow-sm shadow-slate-300",IN_PROGRESS:"bg-blue-600 border-blue-600 text-white shadow-sm shadow-blue-200",PENDING:"bg-amber-500 border-amber-500 text-white shadow-sm shadow-amber-200",RESOLVED:"bg-emerald-600 border-emerald-600 text-white shadow-sm shadow-emerald-200",CLOSED:"bg-slate-500 border-slate-500 text-white shadow-sm shadow-slate-300"},D={OPEN:"border-slate-200 text-slate-600 hover:border-slate-300 hover:bg-slate-50",IN_PROGRESS:"border-blue-200 text-blue-700 hover:border-blue-300 hover:bg-blue-50",PENDING:"border-amber-200 text-amber-700 hover:border-amber-300 hover:bg-amber-50",RESOLVED:"border-emerald-200 text-emerald-700 hover:border-emerald-300 hover:bg-emerald-50",CLOSED:"border-slate-200 text-slate-500 hover:border-slate-300 hover:bg-slate-50"},N=e.dueAt?(()=>{const r=new Date(e.dueAt);return`${r.getFullYear()}-${A(r.getMonth()+1)}-${A(r.getDate())}T${A(r.getHours())}:${A(r.getMinutes())}`})():"",I="rounded-md border border-slate-200 px-3 py-2 text-left text-sm font-medium text-slate-600 transition hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700",y='<button type="submit" class="rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white hover:bg-brand-dark-hover">Salvar</button>';E(t,"/chamados",`
         <div class="flex flex-col gap-6">
             <div class="flex items-center gap-3"><a href="#/chamados" class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-slate-200 bg-white text-slate-500 transition hover:bg-slate-100 hover:text-slate-900">←</a>
-                <h1 class="min-w-0 truncate text-lg font-semibold text-slate-900"><span class="text-slate-400">#${t.number}</span> ${esc(t.title)}</h1></div>
+                <h1 class="min-w-0 truncate text-lg font-semibold text-slate-900"><span class="text-slate-400">#${e.number}</span> ${i(e.title)}</h1></div>
             <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">
                 <div class="order-2 flex flex-col gap-4 lg:order-1">
-                    ${canManage ? `<div class="rounded-xl border border-slate-200 bg-white p-5"><h2 class="mb-3 text-sm font-medium text-slate-700">Ações</h2>
+                    ${s?`<div class="rounded-xl border border-slate-200 bg-white p-5"><h2 class="mb-3 text-sm font-medium text-slate-700">Ações</h2>
                         <div class="flex flex-col gap-3"><div class="grid grid-cols-1 gap-2 sm:grid-cols-2">
-                            <button type="button" data-painel="due" class="${btnAcao}">⏱ Estipular prazo</button><button type="button" data-painel="subject" class="${btnAcao}">🏷 Mudar assunto</button>
-                            <button type="button" data-painel="reassign" class="${btnAcao} sm:col-span-2">⇄ Trocar responsável</button></div>
+                            <button type="button" data-painel="due" class="${I}">⏱ Estipular prazo</button><button type="button" data-painel="subject" class="${I}">🏷 Mudar assunto</button>
+                            <button type="button" data-painel="reassign" class="${I} sm:col-span-2">⇄ Trocar responsável</button></div>
                             <form data-form="due" hidden class="flex items-end gap-2 rounded-md bg-slate-50 p-3"><div class="flex flex-1 flex-col gap-1"><label class="text-xs font-medium text-slate-600">Prazo para resolver</label>
-                                <input type="datetime-local" name="dueAt" value="${dueLocal}" class="rounded-md border border-slate-300 px-2 py-1.5 text-sm"></div>${salvarBtn}</form>
+                                <input type="datetime-local" name="dueAt" value="${N}" class="rounded-md border border-slate-300 px-2 py-1.5 text-sm"></div>${y}</form>
                             <form data-form="subject" hidden class="flex items-end gap-2 rounded-md bg-slate-50 p-3"><div class="flex flex-1 flex-col gap-1"><label class="text-xs font-medium text-slate-600">Assunto</label>
-                                <select name="subjectId" class="rounded-md border border-slate-300 px-2 py-1.5 text-sm">${db.subjects.filter((s) => s.departmentId === t.departmentId).sort(porNome).map((s) => `<option value="${s.id}"${s.id === t.subjectId ? " selected" : ""}>${esc(s.name)}</option>`).join("")}</select></div>${salvarBtn}</form>
+                                <select name="subjectId" class="rounded-md border border-slate-300 px-2 py-1.5 text-sm">${c.subjects.filter(r=>r.departmentId===e.departmentId).sort(O).map(r=>`<option value="${r.id}"${r.id===e.subjectId?" selected":""}>${i(r.name)}</option>`).join("")}</select></div>${y}</form>
                             <form data-form="reassign" hidden class="flex items-end gap-2 rounded-md bg-slate-50 p-3"><div class="flex flex-1 flex-col gap-1"><label class="text-xs font-medium text-slate-600">Novo responsável</label>
-                                <select name="assigneeId" class="rounded-md border border-slate-300 px-2 py-1.5 text-sm"><option value="" disabled selected>Selecione...</option>${atendentes(u).map((a) => `<option value="${a.id}">${esc(a.name)}</option>`).join("")}</select></div>${salvarBtn}</form>
+                                <select name="assigneeId" class="rounded-md border border-slate-300 px-2 py-1.5 text-sm"><option value="" disabled selected>Selecione...</option>${ce(t).map(r=>`<option value="${r.id}">${i(r.name)}</option>`).join("")}</select></div>${y}</form>
                         </div>
-                        ${!t.assigneeId ? `<div class="mt-3"><button data-assumir="${t.id}" class="shrink-0 rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-black/20 transition hover:bg-brand-dark-hover">Assumir chamado</button></div>` : ""}
-                    </div>` : ""}
+                        ${e.assigneeId?"":`<div class="mt-3"><button data-assumir="${e.id}" class="shrink-0 rounded-md bg-brand-dark px-3 py-1.5 text-sm font-medium text-white shadow-sm shadow-black/20 transition hover:bg-brand-dark-hover">Assumir chamado</button></div>`}
+                    </div>`:""}
                     <div class="rounded-xl border border-slate-200 bg-white p-5"><h2 class="mb-3 text-sm font-medium text-slate-700">Status</h2>
                         <dl class="flex flex-col gap-2 text-sm">
-                            <div class="flex items-center justify-between"><dt class="text-slate-500">Situação</dt><dd>${prioridade(t.priority)}</dd></div>
-                            ${t.dueAt ? `<div class="flex items-center justify-between"><dt class="text-slate-500">Prazo</dt><dd class="flex items-center gap-2 text-slate-800">${fmtData(t.dueAt)} ${fmtHora(t.dueAt)}${atrasado ? `<span class="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">Atrasado</span>` : ""}</dd></div>` : ""}
-                            <div class="flex items-center justify-between"><dt class="text-slate-500">Departamento</dt><dd class="text-slate-800">${esc(dept(t.departmentId).name)}</dd></div>
-                            <div class="flex items-center justify-between"><dt class="text-slate-500">Assunto</dt><dd class="text-slate-800">${esc(subj(t.subjectId).name)}</dd></div>
-                            <div class="flex items-center justify-between"><dt class="text-slate-500">Solicitante</dt><dd class="text-slate-800">${esc(user(t.requesterId).name)}</dd></div>
-                            <div class="flex items-center justify-between"><dt class="text-slate-500">Responsável</dt><dd class="text-slate-800">${t.assigneeId ? esc(user(t.assigneeId).name) : "—"}</dd></div>
+                            <div class="flex items-center justify-between"><dt class="text-slate-500">Situação</dt><dd>${B(e.priority)}</dd></div>
+                            ${e.dueAt?`<div class="flex items-center justify-between"><dt class="text-slate-500">Prazo</dt><dd class="flex items-center gap-2 text-slate-800">${j(e.dueAt)} ${P(e.dueAt)}${v?'<span class="rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-medium text-red-700">Atrasado</span>':""}</dd></div>`:""}
+                            <div class="flex items-center justify-between"><dt class="text-slate-500">Departamento</dt><dd class="text-slate-800">${i(L(e.departmentId).name)}</dd></div>
+                            <div class="flex items-center justify-between"><dt class="text-slate-500">Assunto</dt><dd class="text-slate-800">${i(k(e.subjectId).name)}</dd></div>
+                            <div class="flex items-center justify-between"><dt class="text-slate-500">Solicitante</dt><dd class="text-slate-800">${i(b(e.requesterId).name)}</dd></div>
+                            <div class="flex items-center justify-between"><dt class="text-slate-500">Responsável</dt><dd class="text-slate-800">${e.assigneeId?i(b(e.assigneeId).name):"—"}</dd></div>
                         </dl></div>
                     <div class="rounded-xl border border-slate-200 bg-white p-5"><h2 class="mb-3 text-sm font-medium text-slate-700">Histórico de situação</h2>
-                        ${eventos.length === 0 ? `<p class="text-sm text-slate-400">Sem histórico ainda.</p>` : `<div class="overflow-x-auto"><table class="w-full text-sm">
+                        ${u.length===0?'<p class="text-sm text-slate-400">Sem histórico ainda.</p>':`<div class="overflow-x-auto"><table class="w-full text-sm">
                             <thead><tr class="text-left text-xs uppercase tracking-wide text-slate-400"><th class="pb-2 font-medium">Status</th><th class="pb-2 font-medium">Período</th><th class="pb-2 font-medium">Tempo</th></tr></thead>
-                            <tbody>${eventos.map((ev, i) => { const prox = eventos[i - 1], fim = prox ? prox.createdAt : Date.now();
-                                return `<tr class="border-t border-slate-100"><td class="py-2 pr-3"><span class="text-xs font-medium text-slate-700">${STATUS_LABELS[ev.toStatus]}</span><p class="text-[11px] text-slate-400">${esc(user(ev.changedById)?.name || "")}</p></td>
-                                    <td class="py-2 pr-3 text-xs text-slate-500">${fmtData(ev.createdAt)}, ${fmtHora(ev.createdAt)}<p class="text-[11px] text-slate-400">${prox ? `até ${fmtData(fim)} ${fmtHora(fim)}` : "Em aberto"}</p></td>
-                                    <td class="py-2 text-xs font-medium text-slate-600">${duracao(fim - ev.createdAt)}</td></tr>`; }).join("")}</tbody></table></div>`}</div>
+                            <tbody>${u.map((r,m)=>{const p=u[m-1],G=p?p.createdAt:Date.now();return`<tr class="border-t border-slate-100"><td class="py-2 pr-3"><span class="text-xs font-medium text-slate-700">${T[r.toStatus]}</span><p class="text-[11px] text-slate-400">${i(b(r.changedById)?.name||"")}</p></td>
+                                    <td class="py-2 pr-3 text-xs text-slate-500">${j(r.createdAt)}, ${P(r.createdAt)}<p class="text-[11px] text-slate-400">${p?`até ${j(G)} ${P(G)}`:"Em aberto"}</p></td>
+                                    <td class="py-2 text-xs font-medium text-slate-600">${Ee(G-r.createdAt)}</td></tr>`}).join("")}</tbody></table></div>`}</div>
                 </div>
                 <div class="order-1 flex flex-col gap-4 lg:order-2 lg:col-span-2">
-                    <div class="rounded-xl border border-slate-200 bg-white p-5"><p class="whitespace-pre-wrap text-sm text-slate-700">${esc(t.description)}</p></div>
-                    ${canManage ? `<div class="rounded-xl border border-slate-200 bg-white p-4"><div class="flex flex-wrap gap-2">${STATUS_ORDER.map((s) => `
-                        <button type="button" data-status="${s}" class="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60 ${s === t.status ? ACTIVE[s] : IDLE[s]}">${svg(STATUS_THEME[s].icon, "h-4 w-4")}${STATUS_LABELS[s]}</button>`).join("")}</div></div>` : ""}
+                    <div class="rounded-xl border border-slate-200 bg-white p-5"><p class="whitespace-pre-wrap text-sm text-slate-700">${i(e.description)}</p></div>
+                    ${s?`<div class="rounded-xl border border-slate-200 bg-white p-4"><div class="flex flex-wrap gap-2">${F.map(r=>`
+                        <button type="button" data-status="${r}" class="flex items-center gap-2 rounded-lg border px-4 py-2 text-sm font-medium transition-all disabled:cursor-not-allowed disabled:opacity-60 ${r===e.status?R[r]:D[r]}">${M(H[r].icon,"h-4 w-4")}${T[r]}</button>`).join("")}</div></div>`:""}
                     <div class="rounded-xl border border-slate-200 bg-white p-5"><h2 class="mb-3 text-sm font-medium text-slate-700">Histórico</h2>
-                        <div class="flex flex-col gap-3">${visiveis.length === 0 ? `<p class="text-sm text-slate-400">Nenhuma mensagem ainda.</p>` : ""}
-                        ${visiveis.map((m) => { const a = user(m.authorId), r = recibo(m);
-                            return `<div class="flex gap-3"><div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${avatarColor(a.name)}">${initials(a.name)}</div>
-                                <div class="flex-1 rounded-lg border p-3 text-sm ${m.isInternal ? "border-amber-200 bg-amber-50" : "border-slate-200 bg-slate-50"}">
-                                    <div class="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-500"><span class="font-medium text-slate-700">${esc(a.name)}${m.isInternal ? `<span class="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">Interna</span>` : ""}</span><span>${distancia(m.createdAt)}</span></div>
-                                    <p class="whitespace-pre-wrap text-slate-700">${esc(m.content)}</p>
-                                    ${r.total > 0 ? `<p class="mt-2 text-[11px] text-slate-400">${r.seen > 0 ? "✓" : ""} ${r.seen}/${r.total} visto</p>` : ""}</div></div>`; }).join("")}</div>
+                        <div class="flex flex-col gap-3">${n.length===0?'<p class="text-sm text-slate-400">Nenhuma mensagem ainda.</p>':""}
+                        ${n.map(r=>{const m=b(r.authorId),p=h(r);return`<div class="flex gap-3"><div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold text-white ${de(m.name)}">${J(m.name)}</div>
+                                <div class="flex-1 rounded-lg border p-3 text-sm ${r.isInternal?"border-amber-200 bg-amber-50":"border-slate-200 bg-slate-50"}">
+                                    <div class="mb-1 flex flex-wrap items-center justify-between gap-x-3 gap-y-1 text-xs text-slate-500"><span class="font-medium text-slate-700">${i(m.name)}${r.isInternal?'<span class="ml-2 rounded bg-amber-200 px-1.5 py-0.5 text-[10px] text-amber-800">Interna</span>':""}</span><span>${me(r.createdAt)}</span></div>
+                                    <p class="whitespace-pre-wrap text-slate-700">${i(r.content)}</p>
+                                    ${p.total>0?`<p class="mt-2 text-[11px] text-slate-400">${p.seen>0?"✓":""} ${p.seen}/${p.total} visto</p>`:""}</div></div>`}).join("")}</div>
                         <div class="mt-4 border-t border-slate-100 pt-4"><form class="flex flex-col gap-2" id="formMsg">
                             <textarea name="content" required rows="3" placeholder="Escreva uma resposta..." class="rounded-md border border-slate-300 px-3 py-2 text-sm"></textarea>
-                            <div class="flex items-center justify-between">${canManage ? `<label class="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" name="isInternal">Mensagem interna (não visível ao solicitante)</label>` : "<span></span>"}
+                            <div class="flex items-center justify-between">${s?'<label class="flex items-center gap-2 text-xs text-slate-600"><input type="checkbox" name="isInternal">Mensagem interna (não visível ao solicitante)</label>':"<span></span>"}
                                 <button type="submit" class="rounded-md bg-brand-dark px-4 py-1.5 text-sm font-medium text-white hover:bg-brand-dark-hover">Enviar</button></div></form></div>
                     </div>
                 </div>
             </div>
-        </div>`);
-        app.querySelectorAll("[data-painel]").forEach((b) => b.onclick = () => app.querySelectorAll("[data-form]").forEach((f) => { f.hidden = f.dataset.form !== b.dataset.painel || !f.hidden; }));
-        const forms = Object.fromEntries([...app.querySelectorAll("[data-form]")].map((f) => [f.dataset.form, f]));
-        if (forms.due) forms.due.onsubmit = (e) => { e.preventDefault(); const v = forms.due.dueAt.value; t.dueAt = v ? new Date(v).getTime() : null; t.updatedAt = Date.now(); salvar(); render(); };
-        if (forms.subject) forms.subject.onsubmit = (e) => { e.preventDefault(); const s = subj(forms.subject.subjectId.value); if (!s || s.departmentId !== t.departmentId) return alert("Assunto inválido para o departamento deste chamado."); t.subjectId = s.id; t.updatedAt = Date.now(); salvar(); render(); };
-        if (forms.reassign) forms.reassign.onsubmit = (e) => {
-            e.preventDefault(); const ag = user(forms.reassign.assigneeId.value);
-            if (!ag || ag.role === "REQUESTER" || !ag.active) return alert("Atendente inválido.");
-            const de = t.status; t.assigneeId = ag.id; if (de === "OPEN") { t.status = "IN_PROGRESS"; registrarStatus(t.id, de, "IN_PROGRESS", u.id); }
-            t.updatedAt = Date.now(); salvar(); render();
-        };
-        app.querySelectorAll("[data-status]").forEach((b) => b.onclick = () => { if (b.dataset.status !== t.status) { mudarStatus(u, t, b.dataset.status); render(); } });
-        ligarAssumir(u);
-        const fm = document.getElementById("formMsg");
-        fm.onsubmit = (e) => {
-            e.preventDefault();
-            const content = fm.content.value.trim();
-            if (!content) return;
-            db.messages.push({ id: novoId(), ticketId: t.id, authorId: u.id, content, isInternal: canManage && fm.isInternal?.checked === true, createdAt: Date.now() });
-            marcarLido(u.id, t.id); salvar(); render();
-        };
-    }
-
-    // ----- Configurações -----
-    function configNav(ativo) {
-        return `<h1 class="mb-4 text-lg font-semibold text-slate-900">Configurações</h1><div class="mb-6 flex gap-1 border-b border-slate-200">${[["/configuracoes/usuarios", "Usuários"], ["/configuracoes/departamentos", "Departamentos e assuntos"]].map(([href, label]) =>
-            `<a href="#${href}" class="border-b-2 px-3 py-2 text-sm font-medium transition-colors ${ativo === href ? "border-blue-600 text-blue-700" : "border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900"}">${label}</a>`).join("")}</div>`;
-    }
-    function telaUsuarios(u) {
-        const users = [...db.users].sort(porNome);
-        const BADGE = { REQUESTER: "bg-slate-100 text-slate-600", AGENT: "bg-blue-100 text-blue-700", MANAGER: "bg-violet-100 text-violet-700" };
-        shell(u, "/configuracoes", `<div>${configNav("/configuracoes/usuarios")}
-            <div class="mb-4 flex items-center justify-between"><p class="text-sm text-slate-500">${users.length} usuário(s)</p></div>
+        </div>`),f.querySelectorAll("[data-painel]").forEach(r=>r.onclick=()=>f.querySelectorAll("[data-form]").forEach(m=>{m.hidden=m.dataset.form!==r.dataset.painel||!m.hidden}));const w=Object.fromEntries([...f.querySelectorAll("[data-form]")].map(r=>[r.dataset.form,r]));w.due&&(w.due.onsubmit=r=>{r.preventDefault();const m=w.due.dueAt.value;e.dueAt=m?new Date(m).getTime():null,e.updatedAt=Date.now(),x(),$()}),w.subject&&(w.subject.onsubmit=r=>{r.preventDefault();const m=k(w.subject.subjectId.value);if(!m||m.departmentId!==e.departmentId)return alert("Assunto inválido para o departamento deste chamado.");e.subjectId=m.id,e.updatedAt=Date.now(),x(),$()}),w.reassign&&(w.reassign.onsubmit=r=>{r.preventDefault();const m=b(w.reassign.assigneeId.value);if(!m||m.role==="REQUESTER"||!m.active)return alert("Atendente inválido.");const p=e.status;e.assigneeId=m.id,p==="OPEN"&&(e.status="IN_PROGRESS",U(e.id,p,"IN_PROGRESS",t.id)),e.updatedAt=Date.now(),x(),$()}),f.querySelectorAll("[data-status]").forEach(r=>r.onclick=()=>{r.dataset.status!==e.status&&(ie(t,e,r.dataset.status),$())}),ue(t);const C=document.getElementById("formMsg");C.onsubmit=r=>{r.preventDefault();const m=C.content.value.trim();m&&(c.messages.push({id:S(),ticketId:e.id,authorId:t.id,content:m,isInternal:s&&C.isInternal?.checked===!0,createdAt:Date.now()}),q(t.id,e.id),x(),$())}}function pe(t){return`<h1 class="mb-4 text-lg font-semibold text-slate-900">Configurações</h1><div class="mb-6 flex gap-1 border-b border-slate-200">${[["/configuracoes/usuarios","Usuários"],["/configuracoes/departamentos","Departamentos e assuntos"]].map(([a,e])=>`<a href="#${a}" class="border-b-2 px-3 py-2 text-sm font-medium transition-colors ${t===a?"border-blue-600 text-blue-700":"border-transparent text-slate-500 hover:border-slate-300 hover:text-slate-900"}">${e}</a>`).join("")}</div>`}function Te(t){const a=[...c.users].sort(O),e={REQUESTER:"bg-slate-100 text-slate-600",AGENT:"bg-blue-100 text-blue-700",MANAGER:"bg-violet-100 text-violet-700"};E(t,"/configuracoes",`<div>${pe("/configuracoes/usuarios")}
+            <div class="mb-4 flex items-center justify-between"><p class="text-sm text-slate-500">${a.length} usuário(s)</p></div>
             <div class="overflow-x-auto rounded-xl border border-slate-200 bg-white shadow-sm"><table class="w-full text-sm"><thead><tr class="border-b border-slate-200 text-left text-xs uppercase tracking-wide text-slate-400">
                 <th class="px-4 py-3 font-medium">Nome</th><th class="px-4 py-3 font-medium">E-mail</th><th class="px-4 py-3 font-medium">Papel</th><th class="px-4 py-3 font-medium">Departamento</th><th class="px-4 py-3 font-medium">Status</th><th class="px-4 py-3 font-medium"></th></tr></thead>
-            <tbody>${users.map((x) => `<tr class="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50">
-                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white ${avatarColor(x.name)}">${initials(x.name)}</span><span class="font-medium text-slate-800">${esc(x.name)}</span></div></td>
-                <td class="px-4 py-3 text-slate-600">${esc(x.email)}</td>
-                <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-[11px] font-medium ${BADGE[x.role]}">${ROLE_LABELS[x.role]}</span></td>
-                <td class="px-4 py-3 text-slate-600">${x.departmentId ? esc(dept(x.departmentId)?.name || "—") : "—"}</td>
-                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${x.active ? "bg-emerald-100 text-emerald-700" : "bg-slate-100 text-slate-500"}"><span class="h-1.5 w-1.5 rounded-full ${x.active ? "bg-emerald-500" : "bg-slate-400"}"></span>${x.active ? "Ativo" : "Inativo"}</span></td>
-                <td class="px-4 py-3"><div class="flex justify-end gap-2">${x.id === u.id ? `<span class="text-xs text-slate-300">(você)</span>` : `<button data-alternar="${x.id}" class="text-xs font-medium ${x.active ? "text-red-600 hover:text-red-700" : "text-emerald-600 hover:text-emerald-700"}">${x.active ? "Desativar" : "Reativar"}</button>`}</div></td>
-            </tr>`).join("")}</tbody></table></div></div>`);
-        app.querySelectorAll("[data-alternar]").forEach((b) => b.onclick = () => {
-            const x = user(b.dataset.alternar);
-            if (!confirm(x.active ? "Desativar este usuário? Ele não vai conseguir mais entrar no sistema." : "Reativar este usuário?")) return;
-            x.active = !x.active; salvar(); render();
-        });
-    }
-    function telaDepartamentos(u) {
-        const deps = [...db.departments].sort(porNome);
-        const prioOpts = Object.entries(PRIORITY_LABELS).map(([k, v]) => `<option value="${k}"${k === "MEDIUM" ? " selected" : ""}>${v}</option>`).join("");
-        shell(u, "/configuracoes", `<div>${configNav("/configuracoes/departamentos")}<div class="flex flex-col gap-6">
+            <tbody>${a.map(s=>`<tr class="border-b border-slate-100 transition-colors last:border-0 hover:bg-slate-50">
+                <td class="px-4 py-3"><div class="flex items-center gap-2.5"><span class="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold text-white ${de(s.name)}">${J(s.name)}</span><span class="font-medium text-slate-800">${i(s.name)}</span></div></td>
+                <td class="px-4 py-3 text-slate-600">${i(s.email)}</td>
+                <td class="px-4 py-3"><span class="rounded-full px-2 py-0.5 text-[11px] font-medium ${e[s.role]}">${oe[s.role]}</span></td>
+                <td class="px-4 py-3 text-slate-600">${s.departmentId?i(L(s.departmentId)?.name||"—"):"—"}</td>
+                <td class="px-4 py-3"><span class="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${s.active?"bg-emerald-100 text-emerald-700":"bg-slate-100 text-slate-500"}"><span class="h-1.5 w-1.5 rounded-full ${s.active?"bg-emerald-500":"bg-slate-400"}"></span>${s.active?"Ativo":"Inativo"}</span></td>
+                <td class="px-4 py-3"><div class="flex justify-end gap-2">${s.id===t.id?'<span class="text-xs text-slate-300">(você)</span>':`<button data-alternar="${s.id}" class="text-xs font-medium ${s.active?"text-red-600 hover:text-red-700":"text-emerald-600 hover:text-emerald-700"}">${s.active?"Desativar":"Reativar"}</button>`}</div></td>
+            </tr>`).join("")}</tbody></table></div></div>`),f.querySelectorAll("[data-alternar]").forEach(s=>s.onclick=()=>{const o=b(s.dataset.alternar);confirm(o.active?"Desativar este usuário? Ele não vai conseguir mais entrar no sistema.":"Reativar este usuário?")&&(o.active=!o.active,x(),$())})}function Pe(t){const a=[...c.departments].sort(O),e=Object.entries(Y).map(([o,n])=>`<option value="${o}"${o==="MEDIUM"?" selected":""}>${n}</option>`).join("");E(t,"/configuracoes",`<div>${pe("/configuracoes/departamentos")}<div class="flex flex-col gap-6">
             <div class="rounded-xl border border-slate-200 bg-white p-6 shadow-sm"><h2 class="mb-3 flex items-center gap-2 text-sm font-medium text-slate-700"><span class="flex h-6 w-6 items-center justify-center rounded-md bg-blue-100 text-blue-600">+</span>Novo departamento</h2>
                 <form id="novoDep" class="flex items-end gap-2"><input name="name" required placeholder="Nome do departamento" class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"><button type="submit" class="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover">Adicionar</button></form></div>
-            ${deps.map((d, i) => { const subs = db.subjects.filter((s) => s.departmentId === d.id).sort(porNome);
-                return `<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div class="h-1 bg-gradient-to-r ${["from-blue-400 to-blue-600", "from-violet-400 to-violet-600", "from-emerald-400 to-emerald-600", "from-amber-400 to-amber-600"][i % 4]}"></div><div class="p-6">
-                    <div class="mb-4 flex items-center justify-between"><h2 class="flex items-center gap-2 text-base font-semibold text-slate-900"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">${esc(d.name.charAt(0).toUpperCase())}</span>${esc(d.name)}</h2>
-                        <button data-excluir-dep="${d.id}" class="text-xs font-medium text-red-600 hover:text-red-700">Excluir departamento</button></div>
+            ${a.map((o,n)=>{const l=c.subjects.filter(d=>d.departmentId===o.id).sort(O);return`<div class="overflow-hidden rounded-xl border border-slate-200 bg-white shadow-sm"><div class="h-1 bg-gradient-to-r ${["from-blue-400 to-blue-600","from-violet-400 to-violet-600","from-emerald-400 to-emerald-600","from-amber-400 to-amber-600"][n%4]}"></div><div class="p-6">
+                    <div class="mb-4 flex items-center justify-between"><h2 class="flex items-center gap-2 text-base font-semibold text-slate-900"><span class="flex h-8 w-8 items-center justify-center rounded-lg bg-slate-100 text-sm font-bold text-slate-600">${i(o.name.charAt(0).toUpperCase())}</span>${i(o.name)}</h2>
+                        <button data-excluir-dep="${o.id}" class="text-xs font-medium text-red-600 hover:text-red-700">Excluir departamento</button></div>
                     <table class="mb-4 w-full text-sm"><thead><tr class="text-left text-xs uppercase tracking-wide text-slate-400"><th class="pb-2 font-medium">Assunto</th><th class="pb-2 font-medium">Prioridade padrão</th><th class="pb-2 font-medium"></th></tr></thead>
-                    <tbody>${subs.length === 0 ? `<tr><td colspan="3" class="py-2 text-slate-400">Nenhum assunto cadastrado.</td></tr>` : ""}
-                    ${subs.map((s) => `<tr class="border-t border-slate-100"><td class="py-2 text-slate-700">${esc(s.name)}</td><td class="py-2">${prioridade(s.defaultPriority)}</td><td class="py-2 text-right"><button data-excluir-sub="${s.id}" class="text-xs font-medium text-red-600 hover:text-red-700">Excluir</button></td></tr>`).join("")}</tbody></table>
-                    <form data-novo-sub="${d.id}" class="flex flex-wrap items-end gap-2"><input name="name" required placeholder="Novo assunto" class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"><select name="defaultPriority" class="rounded-md border border-slate-300 px-3 py-2 text-sm">${prioOpts}</select><button type="submit" class="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover">Adicionar</button></form>
-                </div></div>`; }).join("")}</div></div>`);
-        const nd = document.getElementById("novoDep");
-        nd.onsubmit = (e) => { e.preventDefault(); const n = nd.name.value.trim(); if (!n) return; if (db.departments.some((d) => d.name.toLowerCase() === n.toLowerCase())) return alert("Já existe um departamento com esse nome."); db.departments.push({ id: novoId(), name: n }); salvar(); render(); };
-        app.querySelectorAll("[data-novo-sub]").forEach((f) => f.onsubmit = (e) => { e.preventDefault(); const n = f.name.value.trim(); if (!n) return;
-            if (db.subjects.some((s) => s.departmentId === f.dataset.novoSub && s.name.toLowerCase() === n.toLowerCase())) return alert("Esse assunto já existe neste departamento.");
-            db.subjects.push({ id: novoId(), departmentId: f.dataset.novoSub, name: n, defaultPriority: f.defaultPriority.value }); salvar(); render(); });
-        app.querySelectorAll("[data-excluir-sub]").forEach((b) => b.onclick = () => { const s = subj(b.dataset.excluirSub);
-            if (!confirm(`Excluir o assunto "${s.name}"?`)) return;
-            if (db.tickets.some((t) => t.subjectId === s.id)) return alert("Não é possível excluir: há chamados com esse assunto.");
-            db.subjects = db.subjects.filter((x) => x.id !== s.id); salvar(); render(); });
-        app.querySelectorAll("[data-excluir-dep]").forEach((b) => b.onclick = () => { const d = dept(b.dataset.excluirDep);
-            if (!confirm(`Excluir o departamento "${d.name}"? Só é possível se não houver assuntos, usuários ou chamados vinculados.`)) return;
-            if (db.subjects.some((s) => s.departmentId === d.id) || db.users.some((x) => x.departmentId === d.id) || db.tickets.some((t) => t.departmentId === d.id)) return alert("Não é possível excluir: há assuntos, usuários ou chamados vinculados.");
-            db.departments = db.departments.filter((x) => x.id !== d.id); salvar(); render(); });
-    }
-
-    function telaNaoEncontrado(u, voltar) {
-        shell(u, voltar, `<div class="rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center"><p class="text-sm text-slate-400">Não encontrado ou sem permissão.</p><a href="#${voltar}" class="text-sm font-medium text-blue-600 hover:text-blue-800">Voltar</a></div>`);
-    }
-
-    // ---------- Roteamento ----------
-    function render() {
-        const { caminho } = Rota.atual();
-        const u = sessao();
-        if (!u) { if (caminho !== "/login") return Rota.ir("/login"); return telaLogin(); }
-        if (caminho === "/login" || caminho === "/") return Rota.ir("/home");
-        if (caminho === "/home") return telaHome(u);
-        if (caminho === "/noticias") return telaNoticias(u);
-        if (caminho === "/noticias/novo") return telaNovaNoticia(u);
-        let m = /^\/noticias\/([^/]+)$/.exec(caminho);
-        if (m) return telaNoticia(u, m[1]);
-        if (caminho === "/chamados/novo") return telaNovo(u);
-        if (caminho === "/chamados/fila") return telaFila(u);
-        if (caminho === "/chamados/em-massa") return telaEmMassa(u);
-        if (["/chamados", "/chamados/enviado", "/chamados/todos"].includes(caminho)) return telaLista(u, caminho);
-        m = /^\/chamados\/([^/]+)$/.exec(caminho);
-        if (m) return telaChamado(u, m[1]);
-        if (caminho.startsWith("/configuracoes")) {
-            if (u.role !== "MANAGER") return Rota.ir("/home");
-            if (caminho === "/configuracoes/departamentos") return telaDepartamentos(u);
-            if (caminho !== "/configuracoes/usuarios") return Rota.ir("/configuracoes/usuarios");
-            return telaUsuarios(u);
-        }
-        return Rota.ir("/home");
-    }
-    Rota.iniciar(render);
-})();
+                    <tbody>${l.length===0?'<tr><td colspan="3" class="py-2 text-slate-400">Nenhum assunto cadastrado.</td></tr>':""}
+                    ${l.map(d=>`<tr class="border-t border-slate-100"><td class="py-2 text-slate-700">${i(d.name)}</td><td class="py-2">${B(d.defaultPriority)}</td><td class="py-2 text-right"><button data-excluir-sub="${d.id}" class="text-xs font-medium text-red-600 hover:text-red-700">Excluir</button></td></tr>`).join("")}</tbody></table>
+                    <form data-novo-sub="${o.id}" class="flex flex-wrap items-end gap-2"><input name="name" required placeholder="Novo assunto" class="flex-1 rounded-md border border-slate-300 px-3 py-2 text-sm"><select name="defaultPriority" class="rounded-md border border-slate-300 px-3 py-2 text-sm">${e}</select><button type="submit" class="rounded-md bg-brand-dark px-4 py-2 text-sm font-medium text-white hover:bg-brand-dark-hover">Adicionar</button></form>
+                </div></div>`}).join("")}</div></div>`);const s=document.getElementById("novoDep");s.onsubmit=o=>{o.preventDefault();const n=s.name.value.trim();if(n){if(c.departments.some(l=>l.name.toLowerCase()===n.toLowerCase()))return alert("Já existe um departamento com esse nome.");c.departments.push({id:S(),name:n}),x(),$()}},f.querySelectorAll("[data-novo-sub]").forEach(o=>o.onsubmit=n=>{n.preventDefault();const l=o.name.value.trim();if(l){if(c.subjects.some(d=>d.departmentId===o.dataset.novoSub&&d.name.toLowerCase()===l.toLowerCase()))return alert("Esse assunto já existe neste departamento.");c.subjects.push({id:S(),departmentId:o.dataset.novoSub,name:l,defaultPriority:o.defaultPriority.value}),x(),$()}}),f.querySelectorAll("[data-excluir-sub]").forEach(o=>o.onclick=()=>{const n=k(o.dataset.excluirSub);if(confirm(`Excluir o assunto "${n.name}"?`)){if(c.tickets.some(l=>l.subjectId===n.id))return alert("Não é possível excluir: há chamados com esse assunto.");c.subjects=c.subjects.filter(l=>l.id!==n.id),x(),$()}}),f.querySelectorAll("[data-excluir-dep]").forEach(o=>o.onclick=()=>{const n=L(o.dataset.excluirDep);if(confirm(`Excluir o departamento "${n.name}"? Só é possível se não houver assuntos, usuários ou chamados vinculados.`)){if(c.subjects.some(l=>l.departmentId===n.id)||c.users.some(l=>l.departmentId===n.id)||c.tickets.some(l=>l.departmentId===n.id))return alert("Não é possível excluir: há assuntos, usuários ou chamados vinculados.");c.departments=c.departments.filter(l=>l.id!==n.id),x(),$()}})}function xe(t,a){E(t,a,`<div class="rounded-xl border border-dashed border-slate-200 bg-white py-12 text-center"><p class="text-sm text-slate-400">Não encontrado ou sem permissão.</p><a href="#${a}" class="text-sm font-medium text-blue-600 hover:text-blue-800">Voltar</a></div>`)}function $(){const{caminho:t}=g.atual(),a=he();if(!a)return t!=="/login"?g.ir("/login"):te();if(t==="/login"||t==="/")return g.ir("/home");if(t==="/home")return Ie(a);if(t==="/noticias")return ye(a);if(t==="/noticias/novo")return Se(a);let e=/^\/noticias\/([^/]+)$/.exec(t);return e?Ae(a,e[1]):t==="/chamados/novo"?Le(a):t==="/chamados/fila"?Me(a):t==="/chamados/em-massa"?De(a):["/chamados","/chamados/enviado","/chamados/todos"].includes(t)?je(a,t):(e=/^\/chamados\/([^/]+)$/.exec(t),e?Oe(a,e[1]):t.startsWith("/configuracoes")?a.role!=="MANAGER"?g.ir("/home"):t==="/configuracoes/departamentos"?Pe(a):t!=="/configuracoes/usuarios"?g.ir("/configuracoes/usuarios"):Te(a):g.ir("/home"))}g.iniciar($)})();

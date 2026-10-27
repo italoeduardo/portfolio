@@ -1,369 +1,57 @@
-// ============================================================
-//  GEROT — versão que roda no navegador.
-//  Porta das regras do sistema em Java (github.com/italoeduardo/gerot):
-//  mesmo gerador (semente 7), mesmos 12 indicadores, mesma análise
-//  automática e mesma projeção. As metas alteradas ficam salvas só
-//  no navegador de quem está testando.
-// ============================================================
-(function () {
-    "use strict";
-    const { JavaRandom, Data, Calendario, Rota, esc, Local, somaJava, arredHalfUp } = window.Demo;
-
-    // ---------- Gerador (mesma ordem de sorteios do Java) ----------
-    const PERFIS = [
-        { cd: "CD Campinas", faturamento: 196000, ticket: 452, corte: 0.0036, devolucao: 0.015, estoque: 18400000, bloqueado: 0.024,
-            recebimentos: 36, recebFinalizado: 0.988, pendencias: 0, retira: 16.5, os: 3, preventivoInicial: 0.83, preventivoFinal: 0.86, produtividade: 93 },
-        { cd: "CD Recife", faturamento: 171000, ticket: 418, corte: 0.0068, devolucao: 0.023, estoque: 9300000, bloqueado: 0.036,
-            recebimentos: 23, recebFinalizado: 0.962, pendencias: 2, retira: 23.0, os: 6, preventivoInicial: 0.66, preventivoFinal: 0.79, produtividade: 79 },
-    ];
-
-    function gerar(hoje) {
-        const rnd = new JavaRandom(7);
-        const ruido = (amp) => 1 + (rnd.nextDouble() * 2 - 1) * amp;
-        const dinheiro = (v) => arredHalfUp(v, 2);
-        const inicio = Data.comDia(Data.somarMeses(hoje, -6), 1);
-        const totalDias = hoje - inicio;
-        const out = [];
-        for (let dia = inicio; dia <= hoje; dia++) {
-            if (!Calendario.isDiaUtil(dia)) continue;
-            const progresso = (dia - inicio) / totalDias;
-            const fatorDia = Data.diaSemana(dia) === 1 ? 1.12 : 1.0;
-            for (const p of PERFIS) {
-                const fat = p.faturamento * fatorDia * ruido(0.10);
-                const pedidos = Math.round(fat / (p.ticket * ruido(0.04)));
-                const itens = pedidos * (11 + rnd.nextInt(3));
-                const cortados = Math.round(itens * p.corte * ruido(0.45));
-                const estoque = p.estoque * ruido(0.02);
-                const bloqueado = estoque * p.bloqueado * ruido(0.12);
-                const receb = Math.round(p.recebimentos * ruido(0.2));
-                const finalizados = Math.min(receb, Math.round(receb * p.recebFinalizado * ruido(0.02)));
-                const pend = Math.max(0, p.pendencias + rnd.nextInt(3) - 1);
-                const retira = p.retira * ruido(0.15);
-                const os = Math.max(0, p.os + rnd.nextInt(5) - 2);
-                const prevPct = p.preventivoInicial + (p.preventivoFinal - p.preventivoInicial) * progresso;
-                const abastecimentos = 120 + rnd.nextInt(60);
-                const preventivos = Math.round(abastecimentos * Math.min(0.98, prevPct * ruido(0.05)));
-                const volumes = pedidos * (6 + rnd.nextInt(3));
-                const horas = volumes / (p.produtividade * ruido(0.07));
-                // no Java a devolução é sorteada por último, dentro da cadeia de construção
-                const devolvido = dinheiro(fat * p.devolucao * ruido(0.35));
-                out.push({
-                    data: dia, cd: p.cd, faturamento: dinheiro(fat),
-                    pedidosExpedidos: pedidos, itensPedidos: itens, itensCortados: cortados, valorDevolvido: devolvido,
-                    valorEstoque: dinheiro(estoque), valorEstoqueBloqueado: dinheiro(bloqueado),
-                    recebimentos: receb, recebimentosFinalizados: finalizados, pendencias48h: pend,
-                    tempoMedioRetiraMin: Math.round(retira * 10) / 10, osAbertas: os,
-                    abastecimentosPreventivos: preventivos, abastecimentosCorretivos: abastecimentos - preventivos,
-                    volumesSeparados: volumes, horasSeparacao: Math.round(horas * 10) / 10,
-                });
-            }
-        }
-        return out;
-    }
-
-    // ---------- Indicadores ----------
-    const soma = (dias, campo) => somaJava(dias.map(campo));
-    const razao = (num, den, fator) => den === 0 ? 0 : num / den * fator;
-    const ultimaData = (dias) => dias.reduce((m, d) => Math.max(m, d.data), -Infinity);
-    const doUltimoDia = (dias) => { const u = ultimaData(dias); return dias.filter((d) => d.data === u); };
-
-    const IND = [
-        ["FATURAMENTO", "Faturamento", "MOEDA", true, 185000, true, "Soma faturada no período (meta por dia útil, por CD).",
-            (d) => soma(d, (x) => x.faturamento)],
-        ["PEDIDOS", "Pedidos expedidos", "INTEIRO", true, 420, true, "Pedidos que saíram do CD (meta por dia útil, por CD).",
-            (d) => soma(d, (x) => x.pedidosExpedidos)],
-        ["TICKET_MEDIO", "Ticket médio", "MOEDA", true, 430, false, "Faturamento dividido pelos pedidos expedidos.",
-            (d) => razao(soma(d, (x) => x.faturamento), soma(d, (x) => x.pedidosExpedidos), 1)],
-        ["CORTE", "Taxa de corte", "PERCENTUAL", false, 0.5, false, "Itens pedidos que não foram atendidos.",
-            (d) => razao(soma(d, (x) => x.itensCortados), soma(d, (x) => x.itensPedidos), 100)],
-        ["DEVOLUCAO", "Devolução", "PERCENTUAL", false, 2.0, false, "Valor devolvido sobre o faturamento.",
-            (d) => razao(soma(d, (x) => x.valorDevolvido), soma(d, (x) => x.faturamento), 100)],
-        ["ESTOQUE_BLOQUEADO", "Estoque bloqueado", "PERCENTUAL", false, 3.0, false, "Fotografia do último dia: estoque bloqueado sobre o total.",
-            (d) => { const u = doUltimoDia(d); return razao(soma(u, (x) => x.valorEstoqueBloqueado), soma(u, (x) => x.valorEstoque), 100); }],
-        ["RECEBIMENTO", "Recebimento finalizado", "PERCENTUAL", true, 98.0, false, "Recebimentos conferidos e finalizados no mesmo dia.",
-            (d) => razao(soma(d, (x) => x.recebimentosFinalizados), soma(d, (x) => x.recebimentos), 100)],
-        ["PENDENCIAS_48H", "Pendências > 48h", "INTEIRO", false, 0, false, "Recebimentos parados há mais de 48 horas (último dia).",
-            (d) => soma(doUltimoDia(d), (x) => x.pendencias48h)],
-        ["TEMPO_RETIRA", "Tempo médio de retira", "MINUTOS", false, 20, false, "Minutos entre a chegada do cliente e a liberação da carga.",
-            (d) => soma(d, (x) => x.tempoMedioRetiraMin) / d.length],
-        ["OS_ABERTAS", "OS de manutenção abertas", "INTEIRO", false, 5, false, "Ordens de serviço de equipamentos em aberto (último dia).",
-            (d) => soma(doUltimoDia(d), (x) => x.osAbertas)],
-        ["ABASTECIMENTO_PREVENTIVO", "Abastecimento preventivo", "PERCENTUAL", true, 80, false, "Reposições do picking feitas antes de faltar produto.",
-            (d) => razao(soma(d, (x) => x.abastecimentosPreventivos), soma(d, (x) => x.abastecimentosPreventivos + x.abastecimentosCorretivos), 100)],
-        ["PRODUTIVIDADE", "Produtividade da separação", "POR_HORA", true, 85, false, "Volumes separados por hora trabalhada.",
-            (d) => razao(soma(d, (x) => x.volumesSeparados), soma(d, (x) => x.horasSeparacao), 1)],
-    ].map(([id, nome, unidade, maiorMelhor, metaPadrao, metaPorDiaUtil, descricao, calculo]) => ({
-        id, nome, unidade, maiorMelhor, metaPadrao, metaPorDiaUtil, descricao,
-        calcular: (dias) => dias.length === 0 ? 0 : calculo(dias),
-        metaDoPeriodo: (meta, fechamentos) => metaPorDiaUtil ? meta * fechamentos : meta,
-        status(valor, meta) {
-            if (maiorMelhor) return valor >= meta ? "OK" : (valor >= meta * 0.95 ? "ATENCAO" : "CRITICO");
-            if (valor <= meta) return "OK";
-            return valor <= (meta === 0 ? 3 : meta * 1.15) ? "ATENCAO" : "CRITICO";
-        },
-    }));
-    const IND_POR_ID = Object.fromEntries(IND.map((i) => [i.id, i]));
-    const STATUS = { OK: ["Dentro da meta", "ok"], ATENCAO: ["Perto da meta", "atencao"], CRITICO: ["Fora da meta", "critico"] };
-
-    // ---------- Formatos (igual ao @fmt do Java) ----------
-    const num = Demo.Fmt.num;
-    const fmt = {
-        num,
-        pct(v) { const a = Math.abs(v); return num(v, a > 0 && a < 1 ? 2 : 1) + "%"; },
-        moeda: Demo.Fmt.moeda,
-        moedaCurta(v) {
-            const a = Math.abs(v);
-            if (a >= 1000000) return "R$ " + num(v / 1000000, 2) + " mi";
-            if (a >= 10000) return "R$ " + num(v / 1000, 0) + " mil";
-            return fmt.moeda(v);
-        },
-        inteiro: (v) => num(Math.round(v), 0),
-        valor(ind, v) {
-            switch (ind.unidade) {
-                case "MOEDA": return v >= 10000 ? fmt.moedaCurta(v) : fmt.moeda(v);
-                case "INTEIRO": return fmt.inteiro(v);
-                case "PERCENTUAL": return fmt.pct(v);
-                case "MINUTOS": return num(v, 1) + " min";
-                default: return num(v, 1) + " vol/h";
-            }
-        },
-    };
-
-    // ---------- Metas (ficam no navegador do visitante) ----------
-    const CHAVE_METAS = "demo.gerot.metas";
-    const metasSalvas = () => Local.ler(CHAVE_METAS, {});
-    const metaValores = () => { const s = metasSalvas(); return Object.fromEntries(IND.map((i) => [i.id, s[i.id]?.valor ?? i.metaPadrao])); };
-
-    // ---------- PainelService ----------
-    const HOJE = Data.hoje();
-    const DIAS = gerar(HOJE);
-    const CDS = [...new Set(DIAS.map((d) => d.cd))].sort();
-    const buscar = (ini, fim, cd) => DIAS.filter((d) => d.data >= ini && d.data <= fim && (!cd || d.cd === cd));
-
-    function filtroDe(params) {
-        let inicio = Data.deIso(params.get("inicio")), fim = Data.deIso(params.get("fim"));
-        if (inicio != null && fim != null && fim < inicio) [inicio, fim] = [fim, inicio];
-        return { inicio: inicio ?? Data.comDia(HOJE, 1), fim: fim ?? HOJE, cd: params.get("cd") || null };
-    }
-
-    function variacao(ind, atual, anterior, diasAtual, diasAnterior) {
-        if (anterior.length === 0 || diasAtual === 0) return null;
-        let a = ind.calcular(atual), b = ind.calcular(anterior);
-        if (ind.metaPorDiaUtil) { a /= diasAtual; b /= diasAnterior; }
-        if (b === 0) return null;
-        return Math.round((a - b) / Math.abs(b) * 1000) / 10;
-    }
-
-    function projecao(f, metaDiaria) {
-        const primeiro = Data.comDia(HOJE, 1);
-        if (f.fim < primeiro || f.inicio > HOJE) return null;
-        const doMes = buscar(primeiro, HOJE, f.cd);
-        const passados = new Set(doMes.map((d) => d.data)).size;
-        if (passados === 0) return null;
-        const p = Data.partes(HOJE);
-        let uteisMes = 0;
-        for (let d = primeiro; d < primeiro + Data.diasNoMes(p.ano, p.mes); d++) if (Calendario.isDiaUtil(d)) uteisMes++;
-        const realizado = IND_POR_ID.FATURAMENTO.calcular(doMes);
-        const projetado = realizado / passados * uteisMes;
-        const cds = f.cd == null ? Math.max(1, CDS.length) : 1;
-        const metaMes = metaDiaria * uteisMes * cds;
-        const pctMeta = metaMes === 0 ? 0 : projetado / metaMes * 100;
-        return { realizado, projetado, metaMes, diasUteisPassados: passados, diasUteisMes: uteisMes, pctMeta, pctBarra: Math.min(100, pctMeta) };
-    }
-
-    function analisar(kpis, proj) {
-        const out = [];
-        const criticos = kpis.filter((k) => k.status === "CRITICO").sort((a, b) => b.desvioRuim - a.desvioRuim);
-        criticos.forEach((k) => out.push(["ALERTA", `${k.ind.nome} fora da meta: ${fmt.valor(k.ind, k.valor)} contra ${fmt.valor(k.ind, k.meta)}.`]));
-        const atencao = kpis.filter((k) => k.status === "ATENCAO");
-        if (atencao.length) {
-            const n = atencao.map((k) => k.ind.nome.toLowerCase());
-            out.push(["ATENCAO", "Perto do limite: " + (n.length === 1 ? n[0] : n.slice(0, -1).join(", ") + " e " + n[n.length - 1]) + "."]);
-        }
-        const sinal = (v) => (v > 0 ? "+" : "") + fmt.pct(v);
-        const maior = (lista) => lista.reduce((m, k) => (m == null || Math.abs(k.variacaoPct) > Math.abs(m.variacaoPct) ? k : m), null);
-        const relevantes = kpis.filter((k) => k.variacaoPct != null && Math.abs(k.variacaoPct) >= 5);
-        const melhor = maior(relevantes.filter((k) => k.variacaoBoa));
-        if (melhor) out.push(["MELHORA", `Maior melhora contra o período anterior: ${melhor.ind.nome} (${sinal(melhor.variacaoPct)}).`]);
-        const pior = maior(relevantes.filter((k) => !k.variacaoBoa));
-        if (pior) out.push(["PIORA", `Maior piora contra o período anterior: ${pior.ind.nome} (${sinal(pior.variacaoPct)}).`]);
-        if (proj) {
-            out.push(["PROJECAO", `Mantido o ritmo de ${proj.diasUteisPassados} dias úteis, o faturamento do mês fecha em ${fmt.moedaCurta(proj.projetado)} `
-                + `(${fmt.pct(proj.pctMeta)} da meta, ${proj.pctMeta >= 100 ? "acima da meta" : "abaixo da meta"}).`]);
-        }
-        if (!criticos.length && !atencao.length) out.unshift(["POSITIVO", "Todos os 12 indicadores estão dentro da meta no período."]);
-        return out;
-    }
-    const INSIGHT = { ALERTA: ["⚠️", "critico"], ATENCAO: ["🟡", "atencao"], MELHORA: ["📈", "ok"], PIORA: ["📉", "critico"], PROJECAO: ["🎯", "info"], POSITIVO: ["✅", "ok"] };
-
-    function montar(f) {
-        const dias = buscar(f.inicio, f.fim, f.cd);
-        const nDias = f.fim - f.inicio + 1;
-        const anteriores = buscar(f.inicio - nDias, f.inicio - 1, f.cd);
-        const metas = metaValores();
-        const porData = new Map();
-        dias.forEach((d) => (porData.get(d.data) || porData.set(d.data, []).get(d.data)).push(d));
-        const datasOrdem = [...porData.keys()].sort((a, b) => a - b);
-        const diasUteis = datasOrdem.length;
-        const diasUteisAnt = new Set(anteriores.map((d) => d.data)).size;
-        const kpis = IND.map((ind) => {
-            const valor = ind.calcular(dias);
-            const meta = ind.metaDoPeriodo(metas[ind.id], dias.length);
-            const v = variacao(ind, dias, anteriores, diasUteis, diasUteisAnt);
-            const rel = meta === 0 ? null : (valor - meta) / meta;
-            return {
-                ind, valor, meta, status: ind.status(valor, meta), variacaoPct: v,
-                variacaoBoa: v == null || v === 0 ? true : ind.maiorMelhor === v > 0,
-                desvioRuim: meta === 0 ? (ind.maiorMelhor ? 0 : valor) : (ind.maiorMelhor ? -rel : rel),
-                serie: datasOrdem.map((d) => ind.calcular(porData.get(d))),
-            };
-        });
-        const proj = projecao(f, metas.FATURAMENTO);
-        return { f, diasUteis, kpis, datas: datasOrdem.map((d) => Data.br(d).slice(0, 5)), proj, insights: analisar(kpis, proj) };
-    }
-
-    // ---------- Telas ----------
-    const app = document.getElementById("app");
-    let graficos = [];
-    const logado = () => sessionStorageGet("demo.gerot.logado") === "1";
-    function sessionStorageGet(k) { try { return sessionStorage.getItem(k); } catch (e) { return null; } }
-    function sessionStorageSet(k, v) { try { v == null ? sessionStorage.removeItem(k) : sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } }
-    let flash = null;
-
-    function telaPainel(f) {
-        const p = montar(f);
-        const conta = (s) => p.kpis.filter((k) => k.status === s).length;
-        const pr = p.proj;
-        app.innerHTML = `
+/* (c) 2026 Italo Eduardo. Todos os direitos reservados. Proibida a cópia, modificação ou uso sem autorização por escrito. */
+(function(){"use strict";const{JavaRandom:K,Data:v,Calendario:w,Rota:O,esc:b,Local:C,somaJava:G,arredHalfUp:W}=window.Demo,Q=[{cd:"CD Campinas",faturamento:196e3,ticket:452,corte:.0036,devolucao:.015,estoque:184e5,bloqueado:.024,recebimentos:36,recebFinalizado:.988,pendencias:0,retira:16.5,os:3,preventivoInicial:.83,preventivoFinal:.86,produtividade:93},{cd:"CD Recife",faturamento:171e3,ticket:418,corte:.0068,devolucao:.023,estoque:93e5,bloqueado:.036,recebimentos:23,recebFinalizado:.962,pendencias:2,retira:23,os:6,preventivoInicial:.66,preventivoFinal:.79,produtividade:79}];function X(e){const a=new K(7),t=c=>1+(a.nextDouble()*2-1)*c,i=c=>W(c,2),d=v.comDia(v.somarMeses(e,-6),1),o=e-d,r=[];for(let c=d;c<=e;c++){if(!w.isDiaUtil(c))continue;const l=(c-d)/o,p=v.diaSemana(c)===1?1.12:1;for(const s of Q){const n=s.faturamento*p*t(.1),u=Math.round(n/(s.ticket*t(.04))),h=u*(11+a.nextInt(3)),A=Math.round(h*s.corte*t(.45)),R=s.estoque*t(.02),U=R*s.bloqueado*t(.12),q=Math.round(s.recebimentos*t(.2)),ca=Math.min(q,Math.round(q*s.recebFinalizado*t(.02))),da=Math.max(0,s.pendencias+a.nextInt(3)-1),la=s.retira*t(.15),ma=Math.max(0,s.os+a.nextInt(5)-2),ua=s.preventivoInicial+(s.preventivoFinal-s.preventivoInicial)*l,V=120+a.nextInt(60),_=Math.round(V*Math.min(.98,ua*t(.05))),J=u*(6+a.nextInt(3)),pa=J/(s.produtividade*t(.07)),va=i(n*s.devolucao*t(.35));r.push({data:c,cd:s.cd,faturamento:i(n),pedidosExpedidos:u,itensPedidos:h,itensCortados:A,valorDevolvido:va,valorEstoque:i(R),valorEstoqueBloqueado:i(U),recebimentos:q,recebimentosFinalizados:ca,pendencias48h:da,tempoMedioRetiraMin:Math.round(la*10)/10,osAbertas:ma,abastecimentosPreventivos:_,abastecimentosCorretivos:V-_,volumesSeparados:J,horasSeparacao:Math.round(pa*10)/10})}}return r}const m=(e,a)=>G(e.map(a)),E=(e,a,t)=>a===0?0:e/a*t,Y=e=>e.reduce((a,t)=>Math.max(a,t.data),-1/0),P=e=>{const a=Y(e);return e.filter(t=>t.data===a)},T=[["FATURAMENTO","Faturamento","MOEDA",!0,185e3,!0,"Soma faturada no período (meta por dia útil, por CD).",e=>m(e,a=>a.faturamento)],["PEDIDOS","Pedidos expedidos","INTEIRO",!0,420,!0,"Pedidos que saíram do CD (meta por dia útil, por CD).",e=>m(e,a=>a.pedidosExpedidos)],["TICKET_MEDIO","Ticket médio","MOEDA",!0,430,!1,"Faturamento dividido pelos pedidos expedidos.",e=>E(m(e,a=>a.faturamento),m(e,a=>a.pedidosExpedidos),1)],["CORTE","Taxa de corte","PERCENTUAL",!1,.5,!1,"Itens pedidos que não foram atendidos.",e=>E(m(e,a=>a.itensCortados),m(e,a=>a.itensPedidos),100)],["DEVOLUCAO","Devolução","PERCENTUAL",!1,2,!1,"Valor devolvido sobre o faturamento.",e=>E(m(e,a=>a.valorDevolvido),m(e,a=>a.faturamento),100)],["ESTOQUE_BLOQUEADO","Estoque bloqueado","PERCENTUAL",!1,3,!1,"Fotografia do último dia: estoque bloqueado sobre o total.",e=>{const a=P(e);return E(m(a,t=>t.valorEstoqueBloqueado),m(a,t=>t.valorEstoque),100)}],["RECEBIMENTO","Recebimento finalizado","PERCENTUAL",!0,98,!1,"Recebimentos conferidos e finalizados no mesmo dia.",e=>E(m(e,a=>a.recebimentosFinalizados),m(e,a=>a.recebimentos),100)],["PENDENCIAS_48H","Pendências > 48h","INTEIRO",!1,0,!1,"Recebimentos parados há mais de 48 horas (último dia).",e=>m(P(e),a=>a.pendencias48h)],["TEMPO_RETIRA","Tempo médio de retira","MINUTOS",!1,20,!1,"Minutos entre a chegada do cliente e a liberação da carga.",e=>m(e,a=>a.tempoMedioRetiraMin)/e.length],["OS_ABERTAS","OS de manutenção abertas","INTEIRO",!1,5,!1,"Ordens de serviço de equipamentos em aberto (último dia).",e=>m(P(e),a=>a.osAbertas)],["ABASTECIMENTO_PREVENTIVO","Abastecimento preventivo","PERCENTUAL",!0,80,!1,"Reposições do picking feitas antes de faltar produto.",e=>E(m(e,a=>a.abastecimentosPreventivos),m(e,a=>a.abastecimentosPreventivos+a.abastecimentosCorretivos),100)],["PRODUTIVIDADE","Produtividade da separação","POR_HORA",!0,85,!1,"Volumes separados por hora trabalhada.",e=>E(m(e,a=>a.volumesSeparados),m(e,a=>a.horasSeparacao),1)]].map(([e,a,t,i,d,o,r,c])=>({id:e,nome:a,unidade:t,maiorMelhor:i,metaPadrao:d,metaPorDiaUtil:o,descricao:r,calcular:l=>l.length===0?0:c(l),metaDoPeriodo:(l,p)=>o?l*p:l,status(l,p){return i?l>=p?"OK":l>=p*.95?"ATENCAO":"CRITICO":l<=p?"OK":l<=(p===0?3:p*1.15)?"ATENCAO":"CRITICO"}})),Z=Object.fromEntries(T.map(e=>[e.id,e])),L={OK:["Dentro da meta","ok"],ATENCAO:["Perto da meta","atencao"],CRITICO:["Fora da meta","critico"]},M=Demo.Fmt.num,f={num:M,pct(e){const a=Math.abs(e);return M(e,a>0&&a<1?2:1)+"%"},moeda:Demo.Fmt.moeda,moedaCurta(e){const a=Math.abs(e);return a>=1e6?"R$ "+M(e/1e6,2)+" mi":a>=1e4?"R$ "+M(e/1e3,0)+" mil":f.moeda(e)},inteiro:e=>M(Math.round(e),0),valor(e,a){switch(e.unidade){case"MOEDA":return a>=1e4?f.moedaCurta(a):f.moeda(a);case"INTEIRO":return f.inteiro(a);case"PERCENTUAL":return f.pct(a);case"MINUTOS":return M(a,1)+" min";default:return M(a,1)+" vol/h"}}},D="demo.gerot.metas",y=()=>C.ler(D,{}),B=()=>{const e=y();return Object.fromEntries(T.map(a=>[a.id,e[a.id]?.valor??a.metaPadrao]))},I=v.hoje(),F=X(I),j=[...new Set(F.map(e=>e.cd))].sort(),S=(e,a,t)=>F.filter(i=>i.data>=e&&i.data<=a&&(!t||i.cd===t));function aa(e){let a=v.deIso(e.get("inicio")),t=v.deIso(e.get("fim"));return a!=null&&t!=null&&t<a&&([a,t]=[t,a]),{inicio:a??v.comDia(I,1),fim:t??I,cd:e.get("cd")||null}}function ea(e,a,t,i,d){if(t.length===0||i===0)return null;let o=e.calcular(a),r=e.calcular(t);return e.metaPorDiaUtil&&(o/=i,r/=d),r===0?null:Math.round((o-r)/Math.abs(r)*1e3)/10}function ta(e,a){const t=v.comDia(I,1);if(e.fim<t||e.inicio>I)return null;const i=S(t,I,e.cd),d=new Set(i.map(u=>u.data)).size;if(d===0)return null;const o=v.partes(I);let r=0;for(let u=t;u<t+v.diasNoMes(o.ano,o.mes);u++)w.isDiaUtil(u)&&r++;const c=Z.FATURAMENTO.calcular(i),l=c/d*r,p=e.cd==null?Math.max(1,j.length):1,s=a*r*p,n=s===0?0:l/s*100;return{realizado:c,projetado:l,metaMes:s,diasUteisPassados:d,diasUteisMes:r,pctMeta:n,pctBarra:Math.min(100,n)}}function oa(e,a){const t=[],i=e.filter(s=>s.status==="CRITICO").sort((s,n)=>n.desvioRuim-s.desvioRuim);i.forEach(s=>t.push(["ALERTA",`${s.ind.nome} fora da meta: ${f.valor(s.ind,s.valor)} contra ${f.valor(s.ind,s.meta)}.`]));const d=e.filter(s=>s.status==="ATENCAO");if(d.length){const s=d.map(n=>n.ind.nome.toLowerCase());t.push(["ATENCAO","Perto do limite: "+(s.length===1?s[0]:s.slice(0,-1).join(", ")+" e "+s[s.length-1])+"."])}const o=s=>(s>0?"+":"")+f.pct(s),r=s=>s.reduce((n,u)=>n==null||Math.abs(u.variacaoPct)>Math.abs(n.variacaoPct)?u:n,null),c=e.filter(s=>s.variacaoPct!=null&&Math.abs(s.variacaoPct)>=5),l=r(c.filter(s=>s.variacaoBoa));l&&t.push(["MELHORA",`Maior melhora contra o período anterior: ${l.ind.nome} (${o(l.variacaoPct)}).`]);const p=r(c.filter(s=>!s.variacaoBoa));return p&&t.push(["PIORA",`Maior piora contra o período anterior: ${p.ind.nome} (${o(p.variacaoPct)}).`]),a&&t.push(["PROJECAO",`Mantido o ritmo de ${a.diasUteisPassados} dias úteis, o faturamento do mês fecha em ${f.moedaCurta(a.projetado)} (${f.pct(a.pctMeta)} da meta, ${a.pctMeta>=100?"acima da meta":"abaixo da meta"}).`]),!i.length&&!d.length&&t.unshift(["POSITIVO","Todos os 12 indicadores estão dentro da meta no período."]),t}const z={ALERTA:["⚠️","critico"],ATENCAO:["🟡","atencao"],MELHORA:["📈","ok"],PIORA:["📉","critico"],PROJECAO:["🎯","info"],POSITIVO:["✅","ok"]};function sa(e){const a=S(e.inicio,e.fim,e.cd),t=e.fim-e.inicio+1,i=S(e.inicio-t,e.inicio-1,e.cd),d=B(),o=new Map;a.forEach(n=>(o.get(n.data)||o.set(n.data,[]).get(n.data)).push(n));const r=[...o.keys()].sort((n,u)=>n-u),c=r.length,l=new Set(i.map(n=>n.data)).size,p=T.map(n=>{const u=n.calcular(a),h=n.metaDoPeriodo(d[n.id],a.length),A=ea(n,a,i,c,l),R=h===0?null:(u-h)/h;return{ind:n,valor:u,meta:h,status:n.status(u,h),variacaoPct:A,variacaoBoa:A==null||A===0?!0:n.maiorMelhor===A>0,desvioRuim:h===0?n.maiorMelhor?0:u:n.maiorMelhor?-R:R,serie:r.map(U=>n.calcular(o.get(U)))}}),s=ta(e,d.FATURAMENTO);return{f:e,diasUteis:c,kpis:p,datas:r.map(n=>v.br(n).slice(0,5)),proj:s,insights:oa(p,s)}}const $=document.getElementById("app");let x=[];const k=()=>ia("demo.gerot.logado")==="1";function ia(e){try{return sessionStorage.getItem(e)}catch{return null}}function H(e,a){try{a==null?sessionStorage.removeItem(e):sessionStorage.setItem(e,a)}catch{}}let g=null;function na(e){const a=sa(e),t=o=>a.kpis.filter(r=>r.status===o).length,i=a.proj;$.innerHTML=`
         <div class="cabecalho"><div>
             <h1 class="titulo">Operação logística</h1>
-            <div class="subtitulo"><span>${Data.br(f.inicio)} a ${Data.br(f.fim)}</span> · <span>${esc(f.cd || "todos os CDs")}</span> · <span>${p.diasUteis} dias úteis</span></div>
+            <div class="subtitulo"><span>${v.br(e.inicio)} a ${v.br(e.fim)}</span> · <span>${b(e.cd||"todos os CDs")}</span> · <span>${a.diasUteis} dias úteis</span></div>
         </div>
-        <div class="placar"><span class="chip ok">${conta("OK")} na meta</span><span class="chip atencao">${conta("ATENCAO")} perto</span><span class="chip critico">${conta("CRITICO")} fora</span></div></div>
+        <div class="placar"><span class="chip ok">${t("OK")} na meta</span><span class="chip atencao">${t("ATENCAO")} perto</span><span class="chip critico">${t("CRITICO")} fora</span></div></div>
 
         <form class="filtros caixa" id="formFiltros">
-            <div><label for="inicio">De</label><input type="date" id="inicio" name="inicio" class="form-control form-control-sm" value="${Data.iso(f.inicio)}"></div>
-            <div><label for="fim">Até</label><input type="date" id="fim" name="fim" class="form-control form-control-sm" value="${Data.iso(f.fim)}"></div>
+            <div><label for="inicio">De</label><input type="date" id="inicio" name="inicio" class="form-control form-control-sm" value="${v.iso(e.inicio)}"></div>
+            <div><label for="fim">Até</label><input type="date" id="fim" name="fim" class="form-control form-control-sm" value="${v.iso(e.fim)}"></div>
             <div><label for="cd">Centro de distribuição</label><select id="cd" name="cd" class="form-select form-select-sm"><option value="">Todos</option>
-                ${CDS.map((c) => `<option value="${esc(c)}"${c === f.cd ? " selected" : ""}>${esc(c)}</option>`).join("")}</select></div>
+                ${j.map(o=>`<option value="${b(o)}"${o===e.cd?" selected":""}>${b(o)}</option>`).join("")}</select></div>
             <div class="filtros-botoes"><button class="btn btn-sm btn-destaque" type="submit">Aplicar</button><a class="btn btn-sm btn-outline-secondary" href="#/">Mês atual</a></div>
         </form>
 
         <div class="row g-3 mb-3">
             <div class="col-lg-8"><section class="caixa h-100"><h2 class="secao">🧠 Análise automática do período</h2>
-                <ul class="insights">${p.insights.map(([t, txt]) => `<li class="${INSIGHT[t][1]}"><span class="insight-icone">${INSIGHT[t][0]}</span><span>${esc(txt)}</span></li>`).join("")}</ul></section></div>
-            <div class="col-lg-4">${pr ? `<section class="caixa h-100 projecao"><h2 class="secao">🎯 Projeção do mês</h2>
-                <div class="projecao-valor">${fmt.moedaCurta(pr.projetado)}</div>
-                <div class="projecao-meta">meta <b>${fmt.moedaCurta(pr.metaMes)}</b></div>
-                <div class="barra-grande"><span style="width:${pr.pctBarra}%" class="${pr.pctMeta >= 100 ? "ok" : (pr.pctMeta >= 95 ? "atencao" : "critico")}"></span></div>
-                <div class="projecao-rodape"><b>${fmt.pct(pr.pctMeta)}</b> da meta · realizado <span>${fmt.moedaCurta(pr.realizado)}</span> em <span>${pr.diasUteisPassados} de ${pr.diasUteisMes}</span> dias úteis</div></section>`
-            : `<section class="caixa h-100"><h2 class="secao">🎯 Projeção do mês</h2><p class="text-secondary mb-0">A projeção aparece quando o período inclui o mês atual.</p></section>`}</div>
+                <ul class="insights">${a.insights.map(([o,r])=>`<li class="${z[o][1]}"><span class="insight-icone">${z[o][0]}</span><span>${b(r)}</span></li>`).join("")}</ul></section></div>
+            <div class="col-lg-4">${i?`<section class="caixa h-100 projecao"><h2 class="secao">🎯 Projeção do mês</h2>
+                <div class="projecao-valor">${f.moedaCurta(i.projetado)}</div>
+                <div class="projecao-meta">meta <b>${f.moedaCurta(i.metaMes)}</b></div>
+                <div class="barra-grande"><span style="width:${i.pctBarra}%" class="${i.pctMeta>=100?"ok":i.pctMeta>=95?"atencao":"critico"}"></span></div>
+                <div class="projecao-rodape"><b>${f.pct(i.pctMeta)}</b> da meta · realizado <span>${f.moedaCurta(i.realizado)}</span> em <span>${i.diasUteisPassados} de ${i.diasUteisMes}</span> dias úteis</div></section>`:'<section class="caixa h-100"><h2 class="secao">🎯 Projeção do mês</h2><p class="text-secondary mb-0">A projeção aparece quando o período inclui o mês atual.</p></section>'}</div>
         </div>
 
-        <div class="kpis">${p.kpis.map((k, i) => `
-            <article class="kpi caixa ${STATUS[k.status][1]}">
-                <div class="kpi-topo"><span class="kpi-nome" title="${esc(k.ind.descricao)}">${esc(k.ind.nome)}</span><span class="kpi-status">${STATUS[k.status][0]}</span></div>
-                <div class="kpi-valor">${fmt.valor(k.ind, k.valor)}</div>
-                <div class="kpi-meta">meta <span>${(k.ind.maiorMelhor ? "≥ " : "≤ ") + fmt.valor(k.ind, k.meta)}</span>
-                    ${k.variacaoPct != null ? `<span class="kpi-var ${k.variacaoBoa ? "boa" : "ruim"}" title="contra o período anterior de mesmo tamanho">${(k.variacaoPct > 0 ? "▲" : k.variacaoPct < 0 ? "▼" : "") + " " + fmt.pct(Math.abs(k.variacaoPct))}</span>` : ""}</div>
-                <div class="sparkline"><canvas id="spark${i}"></canvas></div>
+        <div class="kpis">${a.kpis.map((o,r)=>`
+            <article class="kpi caixa ${L[o.status][1]}">
+                <div class="kpi-topo"><span class="kpi-nome" title="${b(o.ind.descricao)}">${b(o.ind.nome)}</span><span class="kpi-status">${L[o.status][0]}</span></div>
+                <div class="kpi-valor">${f.valor(o.ind,o.valor)}</div>
+                <div class="kpi-meta">meta <span>${(o.ind.maiorMelhor?"≥ ":"≤ ")+f.valor(o.ind,o.meta)}</span>
+                    ${o.variacaoPct!=null?`<span class="kpi-var ${o.variacaoBoa?"boa":"ruim"}" title="contra o período anterior de mesmo tamanho">${(o.variacaoPct>0?"▲":o.variacaoPct<0?"▼":"")+" "+f.pct(Math.abs(o.variacaoPct))}</span>`:""}</div>
+                <div class="sparkline"><canvas id="spark${r}"></canvas></div>
             </article>`).join("")}</div>
-        <p class="rodape">Versão de demonstração rodando no navegador, com as mesmas regras e os mesmos dados fictícios do sistema em Java.</p>`;
-        Rota.formulario(document.getElementById("formFiltros"), "/");
-        const cores = { OK: "#0d9488", ATENCAO: "#d97706", CRITICO: "#dc2626" };
-        p.kpis.forEach((k, i) => graficos.push(new Chart(document.getElementById("spark" + i), {
-            type: "line",
-            data: { labels: p.datas, datasets: [{ data: k.serie, borderColor: cores[k.status], borderWidth: 2, pointRadius: 0, tension: .35, fill: false }] },
-            options: { maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { enabled: false } }, scales: { x: { display: false }, y: { display: false } } },
-        })));
-    }
-
-    function telaLogin(params) {
-        app.style.maxWidth = "420px";
-        app.innerHTML = `
+        <p class="rodape">Versão de demonstração rodando no navegador, com as mesmas regras e os mesmos dados fictícios do sistema em Java.</p>`,O.formulario(document.getElementById("formFiltros"),"/");const d={OK:"#0d9488",ATENCAO:"#d97706",CRITICO:"#dc2626"};a.kpis.forEach((o,r)=>x.push(new Chart(document.getElementById("spark"+r),{type:"line",data:{labels:a.datas,datasets:[{data:o.serie,borderColor:d[o.status],borderWidth:2,pointRadius:0,tension:.35,fill:!1}]},options:{maintainAspectRatio:!1,animation:!1,plugins:{legend:{display:!1},tooltip:{enabled:!1}},scales:{x:{display:!1},y:{display:!1}}}})))}function ra(e){$.style.maxWidth="420px",$.innerHTML=`
         <form class="caixa mt-4" id="formLogin">
             <h1 class="titulo mb-1">Entrar como gestor</h1>
             <p class="subtitulo mb-3">Necessário apenas para alterar metas.</p>
-            ${params.get("erro") ? `<div class="alert alert-danger py-2">Usuário ou senha inválidos.</div>` : ""}
+            ${e.get("erro")?'<div class="alert alert-danger py-2">Usuário ou senha inválidos.</div>':""}
             <div class="mb-2"><label class="form-label small" for="username">Usuário</label><input class="form-control" id="username" name="username" autocomplete="username" required autofocus></div>
             <div class="mb-3"><label class="form-label small" for="password">Senha</label><input class="form-control" id="password" name="password" type="password" autocomplete="current-password" required></div>
             <button class="btn btn-destaque w-100" type="submit">Entrar</button>
             <p class="small text-secondary mt-3 mb-0">Demonstração: <code>gestor</code> / <code>gestor123</code></p>
-        </form>`;
-        document.getElementById("formLogin").addEventListener("submit", (e) => {
-            e.preventDefault();
-            const ok = e.target.username.value === "gestor" && e.target.password.value === "gestor123";
-            if (!ok) return Rota.ir("/login", { erro: "1" });
-            sessionStorageSet("demo.gerot.logado", "1");
-            Rota.ir("/metas");
-        });
-    }
-
-    function telaMetas() {
-        const salvas = metasSalvas();
-        app.style.maxWidth = "980px";
-        app.innerHTML = `
+        </form>`,document.getElementById("formLogin").addEventListener("submit",a=>{if(a.preventDefault(),!(a.target.username.value==="gestor"&&a.target.password.value==="gestor123"))return O.ir("/login",{erro:"1"});H("demo.gerot.logado","1"),O.ir("/metas")})}function N(){const e=y();$.style.maxWidth="980px",$.innerHTML=`
         <div class="cabecalho"><div><h1 class="titulo">Metas dos indicadores</h1><div class="subtitulo">Só o gestor altera. Cada mudança registra quem fez e quando.</div></div></div>
-        ${flash?.ok ? `<div class="alert alert-success">${esc(flash.ok)}</div>` : ""}${flash?.erro ? `<div class="alert alert-danger">${esc(flash.erro)}</div>` : ""}
+        ${g?.ok?`<div class="alert alert-success">${b(g.ok)}</div>`:""}${g?.erro?`<div class="alert alert-danger">${b(g.erro)}</div>`:""}
         <form class="caixa" id="formMetas"><table class="table tabela align-middle">
             <thead><tr><th>Indicador</th><th>Sentido</th><th style="width: 190px">Meta</th><th>Última alteração</th></tr></thead>
-            <tbody>${IND.map((i) => {
-                const s = salvas[i.id];
-                return `<tr><td><div class="fw-semibold">${esc(i.nome)}</div><div class="small text-secondary">${esc(i.descricao)}</div></td>
-                    <td class="small">${i.maiorMelhor ? "maior é melhor" : "menor é melhor"}</td>
-                    <td><input class="form-control form-control-sm" type="number" step="any" min="0" name="meta_${i.id}" value="${String(s?.valor ?? i.metaPadrao)}" aria-label="Meta de ${esc(i.nome)}"></td>
-                    <td class="small text-secondary">${s ? esc(s.por + " em " + s.em) : "padrão do sistema"}</td></tr>`;
-            }).join("")}</tbody></table>
+            <tbody>${T.map(a=>{const t=e[a.id];return`<tr><td><div class="fw-semibold">${b(a.nome)}</div><div class="small text-secondary">${b(a.descricao)}</div></td>
+                    <td class="small">${a.maiorMelhor?"maior é melhor":"menor é melhor"}</td>
+                    <td><input class="form-control form-control-sm" type="number" step="any" min="0" name="meta_${a.id}" value="${String(t?.valor??a.metaPadrao)}" aria-label="Meta de ${b(a.nome)}"></td>
+                    <td class="small text-secondary">${t?b(t.por+" em "+t.em):"padrão do sistema"}</td></tr>`}).join("")}</tbody></table>
             <div class="d-flex justify-content-between gap-2 flex-wrap">
                 <button class="btn btn-link btn-sm text-secondary px-0" type="button" id="btnRestaurar">Restaurar metas padrão</button>
                 <div class="d-flex gap-2"><a class="btn btn-outline-secondary btn-sm" href="#/">Voltar ao painel</a><button class="btn btn-destaque btn-sm" type="submit">Salvar metas</button></div>
             </div>
-        </form>`;
-        flash = null;
-        document.getElementById("formMetas").addEventListener("submit", (e) => {
-            e.preventDefault();
-            const atuais = metaValores(), novas = metasSalvas();
-            let alteradas = 0;
-            try {
-                for (const i of IND) {
-                    let bruto = e.target["meta_" + i.id].value.trim();
-                    if (!bruto) continue;
-                    if (bruto.includes(",")) bruto = bruto.replace(/\./g, "").replace(",", ".");
-                    const valor = Number(bruto);
-                    if (Number.isNaN(valor)) throw new SyntaxError();
-                    if (valor !== atuais[i.id]) {
-                        if (valor < 0 || !Number.isFinite(valor)) throw new RangeError("Meta inválida para " + i.nome);
-                        const agora = new Date();
-                        novas[i.id] = { valor, por: "gestor", em: `${Data.br(Data.hoje())} ${String(agora.getHours()).padStart(2, "0")}:${String(agora.getMinutes()).padStart(2, "0")}` };
-                        alteradas++;
-                    }
-                }
-                flash = { ok: alteradas === 0 ? "Nenhuma meta foi alterada." : alteradas + " meta(s) atualizada(s)." };
-            } catch (err) {
-                flash = { erro: err instanceof RangeError ? err.message : "Use apenas números (ex.: 185000 ou 0,5)." };
-            }
-            Local.gravar(CHAVE_METAS, novas);
-            telaMetas();
-        });
-        document.getElementById("btnRestaurar").addEventListener("click", () => {
-            Local.apagar(CHAVE_METAS);
-            flash = { ok: "Metas voltaram ao padrão do sistema." };
-            telaMetas();
-        });
-    }
-
-    document.getElementById("btnSair").addEventListener("click", () => { sessionStorageSet("demo.gerot.logado", null); Rota.ir("/"); });
-
-    Rota.iniciar(({ caminho, params }) => {
-        graficos.forEach((g) => g.destroy());
-        graficos = [];
-        app.style.maxWidth = "";
-        if (caminho === "/metas" && !logado()) return Rota.ir("/login");
-        document.getElementById("navPainel").classList.toggle("ativo", caminho === "/");
-        document.getElementById("navMetas").classList.toggle("ativo", caminho === "/metas");
-        document.getElementById("btnSair").hidden = !logado();
-        if (caminho === "/metas") { telaMetas(); document.title = "GEROT · Metas"; }
-        else if (caminho === "/login") { telaLogin(params); document.title = "GEROT · Entrar"; }
-        else { telaPainel(filtroDe(params)); document.title = "GEROT · Painel"; }
-    });
-})();
+        </form>`,g=null,document.getElementById("formMetas").addEventListener("submit",a=>{a.preventDefault();const t=B(),i=y();let d=0;try{for(const o of T){let r=a.target["meta_"+o.id].value.trim();if(!r)continue;r.includes(",")&&(r=r.replace(/\./g,"").replace(",","."));const c=Number(r);if(Number.isNaN(c))throw new SyntaxError;if(c!==t[o.id]){if(c<0||!Number.isFinite(c))throw new RangeError("Meta inválida para "+o.nome);const l=new Date;i[o.id]={valor:c,por:"gestor",em:`${v.br(v.hoje())} ${String(l.getHours()).padStart(2,"0")}:${String(l.getMinutes()).padStart(2,"0")}`},d++}}g={ok:d===0?"Nenhuma meta foi alterada.":d+" meta(s) atualizada(s)."}}catch(o){g={erro:o instanceof RangeError?o.message:"Use apenas números (ex.: 185000 ou 0,5)."}}C.gravar(D,i),N()}),document.getElementById("btnRestaurar").addEventListener("click",()=>{C.apagar(D),g={ok:"Metas voltaram ao padrão do sistema."},N()})}document.getElementById("btnSair").addEventListener("click",()=>{H("demo.gerot.logado",null),O.ir("/")}),O.iniciar(({caminho:e,params:a})=>{if(x.forEach(t=>t.destroy()),x=[],$.style.maxWidth="",e==="/metas"&&!k())return O.ir("/login");document.getElementById("navPainel").classList.toggle("ativo",e==="/"),document.getElementById("navMetas").classList.toggle("ativo",e==="/metas"),document.getElementById("btnSair").hidden=!k(),e==="/metas"?(N(),document.title="GEROT · Metas"):e==="/login"?(ra(a),document.title="GEROT · Entrar"):(na(aa(a)),document.title="GEROT · Painel")})})();

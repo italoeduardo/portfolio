@@ -1,319 +1,59 @@
-// ============================================================
-//  Monta a página a partir de data.js e liga as interações.
-// ============================================================
-(function () {
-    "use strict";
-
-    const $ = (s, r = document) => r.querySelector(s);
-    const $$ = (s, r = document) => [...r.querySelectorAll(s)];
-    const { Player, quadroTela, quadroTranscritor, MOVIMENTO_REDUZIDO } = window.Vitrine;
-    const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-    const players = {};
-
-    function irPara(id) {
-        const alvo = document.getElementById(id);
-        if (!alvo) return;
-        alvo.scrollIntoView({ behavior: MOVIMENTO_REDUZIDO ? "auto" : "smooth", block: "start" });
-        history.replaceState(null, "", "#" + id);
-    }
-
-    // ---------------- vitrine da abertura ----------------
-    function montarVitrine() {
-        const quadros = VITRINE.map((s, i) => s.animacao
-            ? quadroTranscritor()
-            : quadroTela(s.telas[0].img, `${s.nome}: ${s.telas[0].legenda}`, i === 0));
-
-        const chips = $("#vitrineChips");
-        chips.innerHTML = VITRINE.map((s, i) => `
-            <button class="chip" role="tab" data-i="${i}" style="--cor:${s.cor}" aria-label="Ver ${esc(s.nome)}">
-                <span class="chip-ponto"></span>${esc(s.nome)}
-            </button>`).join("");
-
-        const legenda = $("#vitrineLegenda");
-        const janela = $("#vitrineJanela");
-        const botaoPausa = $("#vitrinePausa");
-
-        const player = new Player({
-            tela: $("#vitrineTela"),
-            quadros,
-            duracao: 7500,
-            barras: $("#vitrineBarras"),
-            hover: janela,
-            aoMudar: (i) => {
-                const s = VITRINE[i];
-                $("#vitrine").style.setProperty("--cor", s.cor);
-                $("#vitrineUrl").textContent = s.url;
-                legenda.innerHTML = `
+/* (c) 2026 Italo Eduardo. Todos os direitos reservados. Proibida a cópia, modificação ou uso sem autorização por escrito. */
+(function(){"use strict";const s=(t,a=document)=>a.querySelector(t),u=(t,a=document)=>[...a.querySelectorAll(t)],{Player:$,quadroTela:f,quadroTranscritor:I,MOVIMENTO_REDUZIDO:v}=window.Vitrine,i=t=>String(t).replace(/[&<>"]/g,a=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"})[a]),g={};function h(t){const a=document.getElementById(t);a&&(a.scrollIntoView({behavior:v?"auto":"smooth",block:"start"}),history.replaceState(null,"","#"+t))}function E(){const t=VITRINE.map((e,o)=>e.animacao?I():f(e.telas[0].img,`${e.nome}: ${e.telas[0].legenda}`,o===0)),a=s("#vitrineChips");a.innerHTML=VITRINE.map((e,o)=>`
+            <button class="chip" role="tab" data-i="${o}" style="--cor:${e.cor}" aria-label="Ver ${i(e.nome)}">
+                <span class="chip-ponto"></span>${i(e.nome)}
+            </button>`).join("");const r=s("#vitrineLegenda"),c=s("#vitrineJanela"),d=s("#vitrinePausa"),n=new $({tela:s("#vitrineTela"),quadros:t,duracao:7500,barras:s("#vitrineBarras"),hover:c,aoMudar:e=>{const o=VITRINE[e];s("#vitrine").style.setProperty("--cor",o.cor),s("#vitrineUrl").textContent=o.url,r.innerHTML=`
                     <div>
-                        <span class="pill">${esc(s.categoria)}</span>
-                        <strong>${esc(s.nome)}</strong>
-                        <span class="vitrine-chamada">${esc(s.chamada)}</span>
+                        <span class="pill">${i(o.categoria)}</span>
+                        <strong>${i(o.nome)}</strong>
+                        <span class="vitrine-chamada">${i(o.chamada)}</span>
                     </div>
-                    <button class="botao botao-pequeno" data-ir="sistema-${s.id}">Conhecer o sistema ↓</button>`;
-                $$(".chip", chips).forEach((c, k) => {
-                    c.classList.toggle("ativo", k === i);
-                    c.setAttribute("aria-selected", k === i);
-                });
-            },
-            aoPausar: (tocando) => {
-                botaoPausa.textContent = tocando ? "❚❚" : "▶";
-                botaoPausa.setAttribute("aria-label", tocando ? "Pausar a vitrine" : "Continuar a vitrine");
-            },
-        });
-        if (MOVIMENTO_REDUZIDO) player.o.aoPausar(false);
-
-        botaoPausa.addEventListener("click", (e) => { e.stopPropagation(); player.alternar(); });
-        legenda.addEventListener("click", (e) => {
-            const b = e.target.closest("[data-ir]");
-            if (b) abrirCaso(b.dataset.ir.replace("sistema-", ""));
-        });
-        $("#vitrineTela").addEventListener("click", () => abrirCaso(VITRINE[player.i].id));
-        chips.addEventListener("click", (e) => {
-            const c = e.target.closest(".chip");
-            if (!c) return;
-            player.ir(+c.dataset.i);
-            abrirCaso(VITRINE[+c.dataset.i].id);
-        });
-    }
-
-    /** Clicou num sistema: rola até ele e recomeça o tour de telas dele. */
-    function abrirCaso(id) {
-        irPara("sistema-" + id);
-        const p = players[id];
-        if (p) {
-            p.ir(0);
-            if (!p.tocando) p.alternar();
-        }
-    }
-
-    // ---------------- um bloco por sistema ----------------
-    function montarCasos() {
-        const total = String(VITRINE.length).padStart(2, "0");
-        $("#casos").innerHTML = VITRINE.map((s, i) => `
-            <article class="caso revelar" id="sistema-${s.id}" style="--cor:${s.cor}">
+                    <button class="botao botao-pequeno" data-ir="sistema-${o.id}">Conhecer o sistema ↓</button>`,u(".chip",a).forEach((p,l)=>{p.classList.toggle("ativo",l===e),p.setAttribute("aria-selected",l===e)})},aoPausar:e=>{d.textContent=e?"❚❚":"▶",d.setAttribute("aria-label",e?"Pausar a vitrine":"Continuar a vitrine")}});v&&n.o.aoPausar(!1),d.addEventListener("click",e=>{e.stopPropagation(),n.alternar()}),r.addEventListener("click",e=>{const o=e.target.closest("[data-ir]");o&&m(o.dataset.ir.replace("sistema-",""))}),s("#vitrineTela").addEventListener("click",()=>m(VITRINE[n.i].id)),a.addEventListener("click",e=>{const o=e.target.closest(".chip");o&&(n.ir(+o.dataset.i),m(VITRINE[+o.dataset.i].id))})}function m(t){h("sistema-"+t);const a=g[t];a&&(a.ir(0),a.tocando||a.alternar())}function T(){const t=String(VITRINE.length).padStart(2,"0");s("#casos").innerHTML=VITRINE.map((a,r)=>`
+            <article class="caso revelar" id="sistema-${a.id}" style="--cor:${a.cor}">
                 <div class="caso-texto">
                     <div class="caso-topo">
-                        <span class="caso-indice">${String(i + 1).padStart(2, "0")}<i> / ${total}</i></span>
-                        <span class="pill">${esc(s.categoria)}</span>
+                        <span class="caso-indice">${String(r+1).padStart(2,"0")}<i> / ${t}</i></span>
+                        <span class="pill">${i(a.categoria)}</span>
                     </div>
-                    <h3>${esc(s.nome)}</h3>
-                    <p class="caso-chamada">${esc(s.chamada)}</p>
-                    <p class="caso-descricao">${esc(s.descricao)}</p>
-                    <ul class="caso-destaques">${s.destaques.map((d) => `<li>${esc(d)}</li>`).join("")}</ul>
-                    <div class="caso-numeros">${s.numeros.map((n) => `<div><b>${esc(n.v)}</b><span>${esc(n.r)}</span></div>`).join("")}</div>
-                    <div class="tags">${s.stack.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
+                    <h3>${i(a.nome)}</h3>
+                    <p class="caso-chamada">${i(a.chamada)}</p>
+                    <p class="caso-descricao">${i(a.descricao)}</p>
+                    <ul class="caso-destaques">${a.destaques.map(c=>`<li>${i(c)}</li>`).join("")}</ul>
+                    <div class="caso-numeros">${a.numeros.map(c=>`<div><b>${i(c.v)}</b><span>${i(c.r)}</span></div>`).join("")}</div>
+                    <div class="tags">${a.stack.map(c=>`<span class="tag">${i(c)}</span>`).join("")}</div>
                     <div class="caso-acoes">
-                        ${LAB[s.id] ? `<button class="botao botao-principal" data-testar="${s.id}">Testar ao vivo ▶</button>` : ""}
-                        <a class="botao ${LAB[s.id] ? "botao-vazado" : "botao-principal"}" href="${s.repo}" target="_blank" rel="noopener">Ver o código ↗</a>
-                        ${s.link ? `<a class="botao botao-vazado" href="${s.link}" target="_blank" rel="noopener">Ver no ar ↗</a>` : ""}
-                        <button class="botao botao-vazado" data-proximo="${i}">${i < VITRINE.length - 1 ? "Próximo sistema ↓" : "Testar ao vivo ↓"}</button>
+                        ${LAB[a.id]?`<button class="botao botao-principal" data-testar="${a.id}">Testar ao vivo ▶</button>`:""}
+                        ${a.link?`<a class="botao botao-vazado" href="${a.link}" target="_blank" rel="noopener">Ver no ar ↗</a>`:""}
+                        <button class="botao botao-vazado" data-proximo="${r}">${r<VITRINE.length-1?"Próximo sistema ↓":"Testar ao vivo ↓"}</button>
                     </div>
                 </div>
                 <div class="caso-midia">
                     <div class="vitrine-barras"></div>
                     <div class="janela">
-                        <div class="janela-barra"><span class="pontos"><i></i><i></i><i></i></span><span class="janela-url">${esc(s.url)}</span></div>
-                        <div class="janela-tela${s.animacao ? " tela-app" : ""}"></div>
+                        <div class="janela-barra"><span class="pontos"><i></i><i></i><i></i></span><span class="janela-url">${i(a.url)}</span></div>
+                        <div class="janela-tela${a.animacao?" tela-app":""}"></div>
                     </div>
                     <p class="caso-legenda"></p>
-                    <div class="miniaturas">${(s.telas || []).map((t, k) => `
-                        <button class="miniatura" data-k="${k}" aria-label="${esc(t.legenda)}">
-                            <img src="assets/sistemas/${t.img}.webp" alt="" loading="lazy" decoding="async">
+                    <div class="miniaturas">${(a.telas||[]).map((c,d)=>`
+                        <button class="miniatura" data-k="${d}" aria-label="${i(c.legenda)}">
+                            <img src="assets/sistemas/${c.img}.webp" alt="" loading="lazy" decoding="async">
                         </button>`).join("")}</div>
                 </div>
-            </article>`).join("");
-
-        VITRINE.forEach((s) => {
-            const caso = $("#sistema-" + s.id);
-            const legenda = $(".caso-legenda", caso);
-            const quadros = s.animacao
-                ? [quadroTranscritor()]
-                : s.telas.map((t) => quadroTela(t.img, `${s.nome}: ${t.legenda}`));
-            players[s.id] = new Player({
-                tela: $(".janela-tela", caso),
-                quadros,
-                duracao: s.animacao ? 60000 : 6500,
-                barras: quadros.length > 1 ? $(".vitrine-barras", caso) : null,
-                hover: $(".janela", caso),
-                aoMudar: (k) => {
-                    legenda.textContent = s.animacao
-                        ? "Interface do app recriada em HTML: legenda ao vivo e histórico por locutor"
-                        : s.telas[k].legenda;
-                    $$(".miniatura", caso).forEach((m, j) => m.classList.toggle("ativa", j === k));
-                },
-            });
-            caso.addEventListener("click", (e) => {
-                const m = e.target.closest(".miniatura");
-                if (m) players[s.id].ir(+m.dataset.k);
-                const tst = e.target.closest("[data-testar]");
-                if (tst) testar(tst.dataset.testar);
-                const p = e.target.closest("[data-proximo]");
-                if (p) {
-                    const prox = VITRINE[+p.dataset.proximo + 1];
-                    prox ? abrirCaso(prox.id) : irPara("demo");
-                }
-            });
-        });
-    }
-
-    // ---------------- números da abertura ----------------
-    function montarNumeros() {
-        const ul = $("#numeros");
-        ul.innerHTML = STATS.map((e) => `
-            <li><b data-alvo="${e.valor}" data-sufixo="${esc(e.sufixo)}">0</b><span>${esc(e.rotulo)}</span></li>`).join("");
-        new IntersectionObserver((ents, obs) => {
-            if (!ents[0].isIntersecting) return;
-            obs.disconnect();
-            $$("b[data-alvo]", ul).forEach((b) => {
-                const alvo = +b.dataset.alvo, suf = b.dataset.sufixo;
-                if (MOVIMENTO_REDUZIDO) { b.textContent = alvo + suf; return; }
-                const ini = performance.now();
-                const anima = (t) => {
-                    const p = Math.min(1, (t - ini) / 1400);
-                    b.textContent = Math.round(alvo * (1 - Math.pow(1 - p, 3))) + suf;
-                    if (p < 1) requestAnimationFrame(anima);
-                };
-                requestAnimationFrame(anima);
-            });
-        }, { threshold: 0.5 }).observe(ul);
-    }
-
-    // ---------- laboratório: os sistemas rodando no navegador ----------
-    let abrirNoLab = () => {};
-    function montarLaboratorio() {
-        const ids = Object.keys(LAB).filter((id) => VITRINE.some((v) => v.id === id));
-        const abas = $("#labAbas"), frame = $("#labFrame");
-        abas.innerHTML = ids.map((id) => {
-            const s = VITRINE.find((v) => v.id === id);
-            return `<button class="chip" role="tab" data-lab="${id}" style="--cor:${s.cor}"><span class="chip-ponto"></span>${esc(LAB[id].rotulo || s.nome)}</button>`;
-        }).join("");
-        let atual = null, carregar = false;
-        abrirNoLab = (id) => {
-            const s = VITRINE.find((v) => v.id === id), cfg = LAB[id];
-            if (!s || !cfg) return;
-            atual = id;
-            $("#laboratorio").style.setProperty("--cor", s.cor);
-            $$(".chip", abas).forEach((c) => { const on = c.dataset.lab === id; c.classList.toggle("ativo", on); c.setAttribute("aria-selected", on); });
-            const url = `demos/${id}/index.html`;
-            $("#labUrl").textContent = s.url;
-            $("#labCodigo").href = s.repo;
-            $("#labTela").href = url;
-            $("#labDica").innerHTML = `<b>${esc(s.nome)}</b> · ${esc(cfg.dica)}${cfg.login ? `<br><span>Acesso de demonstração: ${esc(cfg.login)}</span>` : ""}`;
-            if (carregar) frame.src = url;
-        };
-        abas.addEventListener("click", (e) => { const c = e.target.closest("[data-lab]"); if (c) abrirNoLab(c.dataset.lab); });
-        abrirNoLab(ids[0]);
-        // o iframe só carrega quando a seção aparece (não pesa o início da página)
-        new IntersectionObserver((ents, obs) => {
-            if (!ents[0].isIntersecting) return;
-            obs.disconnect();
-            carregar = true;
-            frame.src = `demos/${atual}/index.html`;
-        }, { rootMargin: "300px" }).observe(frame);
-    }
-
-    /** "Testar ao vivo" de um bloco: rola até o laboratório já com o sistema escolhido. */
-    function testar(id) {
-        abrirNoLab(id);
-        irPara("demo");
-    }
-
-    function montarProjetos() {
-        $("#listaProjetos").innerHTML = PROJETOS.map((p) => `
+            </article>`).join(""),VITRINE.forEach(a=>{const r=s("#sistema-"+a.id),c=s(".caso-legenda",r),d=a.animacao?[I()]:a.telas.map(n=>f(n.img,`${a.nome}: ${n.legenda}`));g[a.id]=new $({tela:s(".janela-tela",r),quadros:d,duracao:a.animacao?6e4:6500,barras:d.length>1?s(".vitrine-barras",r):null,hover:s(".janela",r),aoMudar:n=>{c.textContent=a.animacao?"Interface do app recriada em HTML: legenda ao vivo e histórico por locutor":a.telas[n].legenda,u(".miniatura",r).forEach((e,o)=>e.classList.toggle("ativa",o===n))}}),r.addEventListener("click",n=>{const e=n.target.closest(".miniatura");e&&g[a.id].ir(+e.dataset.k);const o=n.target.closest("[data-testar]");o&&x(o.dataset.testar);const p=n.target.closest("[data-proximo]");if(p){const l=VITRINE[+p.dataset.proximo+1];l?m(l.id):h("demo")}})})}function j(){const t=s("#numeros");t.innerHTML=STATS.map(a=>`
+            <li><b data-alvo="${a.valor}" data-sufixo="${i(a.sufixo)}">0</b><span>${i(a.rotulo)}</span></li>`).join(""),new IntersectionObserver((a,r)=>{a[0].isIntersecting&&(r.disconnect(),u("b[data-alvo]",t).forEach(c=>{const d=+c.dataset.alvo,n=c.dataset.sufixo;if(v){c.textContent=d+n;return}const e=performance.now(),o=p=>{const l=Math.min(1,(p-e)/1400);c.textContent=Math.round(d*(1-Math.pow(1-l,3)))+n,l<1&&requestAnimationFrame(o)};requestAnimationFrame(o)}))},{threshold:.5}).observe(t)}let b=()=>{};function k(){const t=Object.keys(LAB).filter(n=>VITRINE.some(e=>e.id===n)),a=s("#labAbas"),r=s("#labFrame");a.innerHTML=t.map(n=>{const e=VITRINE.find(o=>o.id===n);return`<button class="chip" role="tab" data-lab="${n}" style="--cor:${e.cor}"><span class="chip-ponto"></span>${i(LAB[n].rotulo||e.nome)}</button>`}).join("");let c=null,d=!1;b=n=>{const e=VITRINE.find(l=>l.id===n),o=LAB[n];if(!e||!o)return;c=n,s("#laboratorio").style.setProperty("--cor",e.cor),u(".chip",a).forEach(l=>{const L=l.dataset.lab===n;l.classList.toggle("ativo",L),l.setAttribute("aria-selected",L)});const p=`demos/${n}/index.html`;s("#labUrl").textContent=e.url,s("#labTela").href=p,s("#labDica").innerHTML=`<b>${i(e.nome)}</b> · ${i(o.dica)}${o.login?`<br><span>Acesso de demonstração: ${i(o.login)}</span>`:""}`,d&&(r.src=p)},a.addEventListener("click",n=>{const e=n.target.closest("[data-lab]");e&&b(e.dataset.lab)}),b(t[0]),new IntersectionObserver((n,e)=>{n[0].isIntersecting&&(e.disconnect(),d=!0,r.src=`demos/${c}/index.html`)},{rootMargin:"300px"}).observe(r)}function x(t){b(t),h("demo")}function M(){s("#listaProjetos").innerHTML=PROJETOS.map(t=>`
             <article class="projeto revelar">
-                <div class="projeto-topo"><span class="projeto-icone">${p.icone}</span><span class="pill">${esc(p.categoria)}</span></div>
-                <h3>${esc(p.nome)}</h3>
-                <p>${esc(p.descricao)}</p>
-                <div class="tags">${p.tecnologias.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
-                ${p.link || p.repo ? `<div class="projeto-links">
-                    ${p.link ? `<a class="projeto-link" href="${p.link}" target="_blank" rel="noopener">Ver no ar ↗</a>` : ""}
-                    ${p.repo ? `<a class="projeto-link" href="${p.repo}" target="_blank" rel="noopener">Código ↗</a>` : ""}
-                </div>` : ""}
-            </article>`).join("");
-    }
-
-    function montarHabilidades() {
-        $("#listaHabilidades").innerHTML = SKILLS.map((s) => `
+                <div class="projeto-topo"><span class="projeto-icone">${t.icone}</span><span class="pill">${i(t.categoria)}</span></div>
+                <h3>${i(t.nome)}</h3>
+                <p>${i(t.descricao)}</p>
+                <div class="tags">${t.tecnologias.map(a=>`<span class="tag">${i(a)}</span>`).join("")}</div>
+                ${t.link?`<div class="projeto-links">
+                    ${t.link?`<a class="projeto-link" href="${t.link}" target="_blank" rel="noopener">Ver no ar ↗</a>`:""}
+                </div>`:""}
+            </article>`).join("")}function R(){s("#listaHabilidades").innerHTML=SKILLS.map(t=>`
             <div class="habilidade revelar">
-                <h3><span>${s.icone}</span>${esc(s.nome)}</h3>
-                <div class="tags">${s.itens.map((t) => `<span class="tag">${esc(t)}</span>`).join("")}</div>
-            </div>`).join("");
-    }
-
-    function montarContato() {
-        const links = [
-            { href: "mailto:" + PERFIL.email, rotulo: PERFIL.email, icone: "✉️" },
-            { href: PERFIL.linkedin, rotulo: "LinkedIn", icone: "in", externo: true },
-            { href: PERFIL.whatsapp, rotulo: "WhatsApp", icone: "💬", externo: true },
-            { href: PERFIL.github, rotulo: "GitHub", icone: "⌥", externo: true },
-        ];
-        $("#contatoLinks").innerHTML = links.map((l) => `
-            <a class="contato-link" href="${l.href}"${l.externo ? ' target="_blank" rel="noopener"' : ""}>
-                <span class="contato-icone">${l.icone}</span>${esc(l.rotulo)}
-            </a>`).join("");
-    }
-
-    // ---------------- navegação, revelar ao rolar, progresso ----------------
-    function ligarNavegacao() {
-        const menu = $("#menu"), botao = $("#menuBotao"), topo = $("#topo");
-        botao.addEventListener("click", () => {
-            const aberto = menu.classList.toggle("aberto");
-            botao.setAttribute("aria-expanded", aberto);
-        });
-        $$("a", menu).forEach((a) => a.addEventListener("click", () => {
-            menu.classList.remove("aberto");
-            botao.setAttribute("aria-expanded", "false");
-        }));
-
-        const links = $$("a[href^='#']", menu);
-        const obsSecoes = new IntersectionObserver((ents) => {
-            ents.forEach((e) => {
-                if (!e.isIntersecting) return;
-                links.forEach((a) => a.classList.toggle("ativo", a.getAttribute("href") === "#" + e.target.id));
-            });
-        }, { rootMargin: "-45% 0px -50% 0px" });
-        $$("main > section[id]").forEach((s) => obsSecoes.observe(s));
-
-        const barra = $("#progressoPagina");
-        const aoRolar = () => {
-            const h = document.documentElement;
-            const p = h.scrollTop / Math.max(1, h.scrollHeight - h.clientHeight);
-            barra.style.transform = `scaleX(${p})`;
-            topo.classList.toggle("rolado", h.scrollTop > 20);
-        };
-        window.addEventListener("scroll", aoRolar, { passive: true });
-        aoRolar();
-    }
-
-    function ligarRevelar() {
-        const alvos = $$(".revelar");
-        if (MOVIMENTO_REDUZIDO || !("IntersectionObserver" in window)) {
-            alvos.forEach((a) => a.classList.add("visivel"));
-            return;
-        }
-        const obs = new IntersectionObserver((ents) => {
-            ents.forEach((e) => {
-                if (e.isIntersecting) {
-                    e.target.classList.add("visivel");
-                    obs.unobserve(e.target);
-                }
-            });
-        }, { threshold: 0.12 });
-        alvos.forEach((a) => obs.observe(a));
-    }
-
-    document.addEventListener("DOMContentLoaded", () => {
-        $("#ano").textContent = new Date().getFullYear();
-        montarVitrine();
-        montarCasos();
-        montarNumeros();
-        montarProjetos();
-        montarHabilidades();
-        montarContato();
-        ligarNavegacao();
-        ligarRevelar();
-        montarLaboratorio();
-        // link direto para um sistema: #sistema-otif
-        if (location.hash.startsWith("#sistema-")) setTimeout(() => abrirCaso(location.hash.slice(9)), 300);
-    });
-})();
+                <h3><span>${t.icone}</span>${i(t.nome)}</h3>
+                <div class="tags">${t.itens.map(a=>`<span class="tag">${i(a)}</span>`).join("")}</div>
+            </div>`).join("")}function V(){const t=[{href:"mailto:"+PERFIL.email,rotulo:PERFIL.email,icone:"✉️"},{href:PERFIL.linkedin,rotulo:"LinkedIn",icone:"in",externo:!0},{href:PERFIL.whatsapp,rotulo:"WhatsApp",icone:"💬",externo:!0}];s("#contatoLinks").innerHTML=t.map(a=>`
+            <a class="contato-link" href="${a.href}"${a.externo?' target="_blank" rel="noopener"':""}>
+                <span class="contato-icone">${a.icone}</span>${i(a.rotulo)}
+            </a>`).join("")}function P(){const t=s("#menu"),a=s("#menuBotao"),r=s("#topo");a.addEventListener("click",()=>{const o=t.classList.toggle("aberto");a.setAttribute("aria-expanded",o)}),u("a",t).forEach(o=>o.addEventListener("click",()=>{t.classList.remove("aberto"),a.setAttribute("aria-expanded","false")}));const c=u("a[href^='#']",t),d=new IntersectionObserver(o=>{o.forEach(p=>{p.isIntersecting&&c.forEach(l=>l.classList.toggle("ativo",l.getAttribute("href")==="#"+p.target.id))})},{rootMargin:"-45% 0px -50% 0px"});u("main > section[id]").forEach(o=>d.observe(o));const n=s("#progressoPagina"),e=()=>{const o=document.documentElement,p=o.scrollTop/Math.max(1,o.scrollHeight-o.clientHeight);n.style.transform=`scaleX(${p})`,r.classList.toggle("rolado",o.scrollTop>20)};window.addEventListener("scroll",e,{passive:!0}),e()}function w(){const t=u(".revelar");if(v||!("IntersectionObserver"in window)){t.forEach(r=>r.classList.add("visivel"));return}const a=new IntersectionObserver(r=>{r.forEach(c=>{c.isIntersecting&&(c.target.classList.add("visivel"),a.unobserve(c.target))})},{threshold:.12});t.forEach(r=>a.observe(r))}document.addEventListener("DOMContentLoaded",()=>{s("#ano").textContent=new Date().getFullYear(),E(),T(),j(),M(),R(),V(),P(),w(),k(),location.hash.startsWith("#sistema-")&&setTimeout(()=>m(location.hash.slice(9)),300)})})();

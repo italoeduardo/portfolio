@@ -1,445 +1,86 @@
-// ============================================================
-//  Painel de Despesas — versão que roda no navegador.
-//  Porta das regras do sistema em Java (github.com/italoeduardo/painel-de-despesas):
-//  mesmo gerador (semente 2026), DRE em cascata com CMV, chave
-//  Competência × Caixa, comparação de período e drill-down.
-//  Valores em centavos inteiros, para somar exatamente como o BigDecimal.
-// ============================================================
-(function () {
-    "use strict";
-    const { JavaRandom, Data, MESES, Calendario, Fmt, Rota, esc, somaJava, arredHalfUp } = window.Demo;
-
-    // ---------- Plano de contas ----------
-    const GRUPOS = [["PESSOAL", "Pessoal"], ["OCUPACAO", "Ocupação"], ["LOGISTICA", "Logística"],
-        ["COMERCIAL", "Comercial"], ["ADMINISTRATIVO", "Administrativo"], ["TECNOLOGIA", "Tecnologia"]];
-    const GRUPO_NOME = Object.fromEntries(GRUPOS);
-    const CONTAS = [
-        ["SALARIOS", "4.1.01", "Salários", "PESSOAL"], ["ENCARGOS", "4.1.02", "Encargos sociais", "PESSOAL"],
-        ["BENEFICIOS", "4.1.03", "Benefícios", "PESSOAL"], ["ALUGUEL", "4.2.01", "Aluguel", "OCUPACAO"],
-        ["ENERGIA", "4.2.02", "Energia elétrica", "OCUPACAO"], ["AGUA", "4.2.03", "Água", "OCUPACAO"],
-        ["MANUTENCAO_PREDIAL", "4.2.04", "Manutenção predial", "OCUPACAO"], ["FRETE_VENDAS", "4.3.01", "Fretes sobre vendas", "LOGISTICA"],
-        ["COMBUSTIVEL", "4.3.02", "Combustível", "LOGISTICA"], ["MANUTENCAO_FROTA", "4.3.03", "Manutenção de frota", "LOGISTICA"],
-        ["PEDAGIO", "4.3.04", "Pedágios", "LOGISTICA"], ["COMISSOES", "4.4.01", "Comissões", "COMERCIAL"],
-        ["MARKETING", "4.4.02", "Marketing", "COMERCIAL"], ["CONTABILIDADE", "4.5.01", "Contabilidade", "ADMINISTRATIVO"],
-        ["MATERIAL_ESCRITORIO", "4.5.02", "Material de escritório", "ADMINISTRATIVO"], ["TELECOM", "4.5.03", "Telefonia e internet", "ADMINISTRATIVO"],
-        ["LICENCAS", "4.6.01", "Licenças de software", "TECNOLOGIA"], ["NUVEM", "4.6.02", "Infraestrutura em nuvem", "TECNOLOGIA"],
-    ].map(([id, codigo, nome, grupo]) => ({ id, codigo, nome, grupo }));
-    const CONTA = Object.fromEntries(CONTAS.map((c) => [c.id, c]));
-    const REGIMES = { COMPETENCIA: ["Competência", "pela data do fato gerador"], CAIXA: ["Caixa", "pela data do pagamento"] };
-
-    // ---------- Gerador (mesma sequência de sorteios do Java) ----------
-    const UNIDADES = [{ nome: "CD Campinas", fatDia: 196000, escala: 1.0, pctFrete: 0.032 }, { nome: "CD Recife", fatDia: 171000, escala: 0.62, pctFrete: 0.041 }];
-    const TRANSPORTADORAS = ["Expresso Horizonte", "RotaSul Log", "TransVale Cargas"];
-    const FORNECEDOR = {
-        SALARIOS: "Folha de pagamento", ENCARGOS: "Encargos (INSS/FGTS)", BENEFICIOS: "Vale Mais Benefícios",
-        ALUGUEL: "Imobiliária Paraná Galpões", ENERGIA: "Distribuidora de Energia Regional", AGUA: "Companhia de Saneamento",
-        MANUTENCAO_PREDIAL: "Predial Serviços Técnicos", COMBUSTIVEL: "Posto Rodovia Sul", MANUTENCAO_FROTA: "Oficina Diesel Center",
-        PEDAGIO: "Tag Rodovias", COMISSOES: "Representantes comerciais", MARKETING: "Agência Ponto Criativo",
-        CONTABILIDADE: "Escritório Contábil Exato", MATERIAL_ESCRITORIO: "Papelaria Central", TELECOM: "Operadora Conecta",
-        LICENCAS: "SoftGestão Licenças", NUVEM: "NuvemBR Infra",
-    };
-    const centavos = (v) => Math.round(arredHalfUp(v, 2) * 100);
-
-    /**
-     * Ordem de iteração de um HashMap<LocalDate, ?> do Java com até 12 chaves (tabela de 16 posições).
-     * As chaves entram por merge(), que põe a chave nova no INÍCIO do balde, então dentro do
-     * mesmo balde a ordem é da última inserida para a primeira.
-     */
-    function ordemHashMap(datas) {
-        const balde = (n) => {
-            const { ano, mes, dia } = Data.partes(n);
-            const h = ((ano & 0xFFFFF800) ^ ((ano << 11) + (mes << 6) + dia)) | 0;
-            return (h ^ (h >>> 16)) & 15;
-        };
-        return datas.map((d, i) => [balde(d), i, d]).sort((a, b) => a[0] - b[0] || b[1] - a[1]).map((x) => x[2]);
-    }
-
-    function gerar(hoje) {
-        const rnd = new JavaRandom(2026);
-        const ruido = (amp) => 1 + (rnd.nextDouble() * 2 - 1) * amp;
-        const fats = [], lancs = [];
-        const inicioAno = Data.partes(hoje).ano - 1;
-        const fimAnoMes = Data.anoMes(hoje);
-        let seqNota = 40000;
-
-        const lancamento = (u, conta, fornecedor, descricao, documento, valor, competencia, vencimento) => {
-            let pagamento = null;
-            if (!(vencimento > hoje) && rnd.nextDouble() < 0.97) {
-                const p = vencimento + rnd.nextInt(9) - 3;
-                pagamento = p > hoje ? hoje : p;
-            }
-            lancs.push({ id: lancs.length + 1, unidade: u.nome, conta, fornecedor, descricao, documento,
-                valor: centavos(valor), competencia, vencimento, pagamento });
-        };
-        const fixo = (u, conta, descricao, valor, competencia, vencimento, variacao) => {
-            if (competencia > hoje) return;
-            lancamento(u, conta, FORNECEDOR[conta], descricao, null, valor * ruido(variacao), competencia, vencimento);
-        };
-
-        for (const u of UNIDADES) {
-            for (let ano = inicioAno, mes = 1; ano * 100 + mes <= fimAnoMes; mes === 12 ? (ano++, mes = 1) : mes++) {
-                const anos = (ano - inicioAno) + (mes - 1) / 12;
-                const tendencia = Math.pow(1.08, anos);
-                const sazonal = mes <= 2 ? 0.90 : mes === 11 ? 1.08 : mes === 12 ? 1.15 : 1.0;
-                const inflacao = Math.pow(1.055, anos);
-                const dia1 = Data.de(ano, mes, 1), diasMes = Data.diasNoMes(ano, mes), fimMes = dia1 + diasMes - 1;
-
-                let fatMes = 0;
-                const fatSemana = new Map();
-                for (let d = dia1; d <= fimMes && d <= hoje; d++) {
-                    if (!Calendario.isDiaUtil(d)) continue;
-                    const v = u.fatDia * tendencia * sazonal * ruido(0.12);
-                    const cmv = v * (0.728 + (rnd.nextDouble() * 2 - 1) * 0.012);
-                    fats.push({ data: d, unidade: u.nome, valor: centavos(v), custo: centavos(cmv) });
-                    fatMes += v;
-                    const sexta = d + (5 - Data.diaSemana(d));
-                    fatSemana.set(sexta, (fatSemana.has(sexta) ? fatSemana.get(sexta) : 0) + v);
-                }
-                if (fatMes === 0) continue;
-
-                const esc = u.escala * inflacao;
-                const prox = (dia) => Data.de(mes === 12 ? ano + 1 : ano, mes === 12 ? 1 : mes + 1, dia);
-                const rot = String(mes).padStart(2, "0") + "/" + ano;
-                const diaDo = (n) => dia1 + n - 1;
-
-                fixo(u, "SALARIOS", "Salários " + rot, 392000 * esc, fimMes, prox(5), 0.01);
-                fixo(u, "ENCARGOS", "INSS e FGTS " + rot, 141000 * esc, fimMes, prox(20), 0.01);
-                fixo(u, "BENEFICIOS", "Vale-refeição e transporte " + rot, 61000 * esc, dia1, diaDo(10), 0.03);
-                fixo(u, "ALUGUEL", "Aluguel do galpão " + rot, 118000 * esc, dia1, diaDo(10), 0);
-                const verao = [12, 1, 2, 3].includes(mes) ? 1.35 : 1.0;
-                fixo(u, "ENERGIA", "Energia " + rot, 27000 * esc * verao, fimMes, prox(15), 0.08);
-                fixo(u, "AGUA", "Água " + rot, 3100 * esc, fimMes, prox(15), 0.1);
-                fixo(u, "PEDAGIO", "Pedágios " + rot, 8800 * esc, fimMes, prox(10), 0.15);
-                fixo(u, "COMISSOES", "Comissões " + rot, fatMes * 0.011, fimMes, prox(10), 0);
-                fixo(u, "MARKETING", "Campanha " + rot, 14000 * esc, diaDo(8), diaDo(25), 0.35);
-                fixo(u, "CONTABILIDADE", "Honorários " + rot, 11500 * esc, fimMes, prox(10), 0);
-                fixo(u, "MATERIAL_ESCRITORIO", "Materiais " + rot, 3900 * esc, diaDo(12), diaDo(28), 0.3);
-                fixo(u, "TELECOM", "Telefonia e links " + rot, 6200 * esc, dia1, diaDo(15), 0.04);
-                fixo(u, "LICENCAS", "Licenças ERP e WMS " + rot, 21500 * esc, dia1, diaDo(10), 0);
-                fixo(u, "NUVEM", "Servidores e backup " + rot, 8700 * esc, fimMes, prox(8), 0.12);
-
-                const manutencoes = 1 + rnd.nextInt(3);
-                for (let i = 0; i < manutencoes; i++) {
-                    const d = diaDo(1 + rnd.nextInt(diasMes));
-                    fixo(u, "MANUTENCAO_PREDIAL", "Manutenção predial", 2000 + rnd.nextInt(9000) * esc, d, d + 20, 0);
-                }
-                const frota = 2 + rnd.nextInt(3);
-                for (let i = 0; i < frota; i++) {
-                    const d = diaDo(1 + rnd.nextInt(diasMes));
-                    fixo(u, "MANUTENCAO_FROTA", "Revisão e peças", 3500 + rnd.nextInt(7000) * esc, d, d + 15, 0);
-                }
-
-                // no Java as semanas ficam num HashMap: a ordem de iteração muda a sequência de sorteios
-                for (const chave of ordemHashMap([...fatSemana.keys()])) {
-                    let sexta = chave > fimMes ? fimMes : chave;
-                    if (sexta > hoje) sexta = hoje;
-                    fixo(u, "COMBUSTIVEL", "Combustível da semana", 6300 * esc, sexta, sexta + 15, 0.15);
-                    const freteSemana = fatSemana.get(chave) * u.pctFrete * ruido(0.1);
-                    const fatias = [0.48, 0.32, 0.20];
-                    for (let t = 0; t < TRANSPORTADORAS.length; t++) {
-                        lancamento(u, "FRETE_VENDAS", TRANSPORTADORAS[t], "Fretes da semana", "CT-e " + (seqNota++),
-                            freteSemana * fatias[t], sexta, sexta + 28);
-                    }
-                }
-            }
-        }
-        return { fats, lancs };
-    }
-
-    // ---------- Consultas ----------
-    const HOJE = Data.hoje();
-    const { fats: FATS, lancs: LANCS } = gerar(HOJE);
-    const UNIDS = [...new Set(LANCS.map((l) => l.unidade))].sort();
-    const dataNo = (l, regime) => regime === "COMPETENCIA" ? l.competencia : l.pagamento;
-
-    const buscarLanc = (f) => LANCS.filter((l) => { const d = dataNo(l, f.regime); return d != null && d >= f.inicio && d <= f.fim && (!f.unidade || l.unidade === f.unidade); });
-    const buscarFat = (f) => FATS.filter((x) => x.data >= f.inicio && x.data <= f.fim && (!f.unidade || x.unidade === f.unidade));
-    const somaCent = (lista, campo) => lista.reduce((s, x) => s + x[campo], 0) / 100;
-    const faturamento = (f) => somaCent(buscarFat(f), "valor");
-    const cmvDe = (f) => somaCent(buscarFat(f), "custo");
-    const pct = (parte, todo) => todo === 0 ? 0 : parte / todo * 100;
-    const valor = (atual, anterior) => ({ atual, anterior, variacaoPct: anterior === 0 ? null : (atual - anterior) / Math.abs(anterior) * 100, pontos: atual - anterior });
-    const rotuloMes = (am) => MESES[am % 100 - 1] + "/" + String(Math.floor(am / 100)).slice(2);
-
-    // ---------- Filtro ----------
-    function filtro(inicio, fim, unidade, regime) {
-        if (inicio != null && fim != null && fim < inicio) [inicio, fim] = [fim, inicio];
-        return { inicio, fim, unidade: unidade || null, regime: regime === "CAIXA" ? "CAIXA" : "COMPETENCIA" };
-    }
-    function comPadroes(f) {
-        const ultimo = Data.somarMeses(Data.comDia(HOJE, 1), -1);
-        const p = Data.partes(ultimo);
-        return filtro(f.inicio ?? Data.de(p.ano, 1, 1), f.fim ?? Data.de(p.ano, p.mes, Data.diasNoMes(p.ano, p.mes)), f.unidade, f.regime);
-    }
-    const mesCheio = (f) => { const p = Data.partes(f.inicio); return p.dia === 1 && f.fim === Data.de(p.ano, p.mes, Data.diasNoMes(p.ano, p.mes)); };
-    const primeiroDoAno = (n) => { const p = Data.partes(n); return p.mes === 1 && p.dia === 1; };
-    const menosAno = (n) => { const p = Data.partes(n); return Data.de(p.ano - 1, p.mes, Math.min(p.dia, Data.diasNoMes(p.ano - 1, p.mes))); };
-    function anterior(f) {
-        if (f.inicio === f.fim) return { ...f, inicio: f.inicio - 1, fim: f.inicio - 1 };
-        if (mesCheio(f)) {
-            const a = Data.somarMeses(f.inicio, -1), p = Data.partes(a);
-            return { ...f, inicio: a, fim: Data.de(p.ano, p.mes, Data.diasNoMes(p.ano, p.mes)) };
-        }
-        if (primeiroDoAno(f.inicio)) return { ...f, inicio: menosAno(f.inicio), fim: menosAno(f.fim) };
-        const dias = f.fim - f.inicio + 1;
-        return { ...f, inicio: f.inicio - dias, fim: f.inicio - 1 };
-    }
-    function descricaoAnterior(f) {
-        if (f.inicio === f.fim) return "dia anterior";
-        if (mesCheio(f)) return "mês anterior";
-        if (primeiroDoAno(f.inicio)) return "mesmo período de " + Data.partes(anterior(f).inicio).ano;
-        return "período anterior de mesmo tamanho";
-    }
-    function filtroDe(params) {
-        return comPadroes(filtro(Data.deIso(params.get("inicio")), Data.deIso(params.get("fim")), params.get("unidade"), params.get("regime")));
-    }
-    const query = (f) => ({ inicio: Data.iso(f.inicio), fim: Data.iso(f.fim), unidade: f.unidade, regime: f.regime });
-
-    // ---------- Formatos (iguais ao @fmt do Java) ----------
-    const fmt = {
-        moeda: Fmt.moeda, pct: Fmt.pct, num: Fmt.num, data: Data.br,
-        moedaCurta(v) { const a = Math.abs(v); if (a >= 1e6) return "R$ " + Fmt.num(v / 1e6, 2) + " mi"; if (a >= 1e4) return "R$ " + Fmt.num(v / 1e3, 0) + " mil"; return Fmt.moeda(v); },
-        inteiro: (v) => Fmt.num(Math.round(v), 0),
-        variacao: (p) => p == null ? "" : (p > 0 ? "+" : "") + Fmt.pct(p),
-        pontos: (pp) => Math.abs(pp) < 0.05 ? "estável" : (pp > 0 ? "+" : "") + Fmt.num(pp, 1) + " p.p.",
-        classe: (v, maiorMelhor) => v == null || Math.abs(v) < 0.05 ? "neutro" : ((v > 0) === maiorMelhor ? "bom" : "ruim"),
-    };
-
-    // ---------- DRE ----------
-    function montarDre(f) {
-        const ant = anterior(f);
-        const atual = buscarLanc(f), antL = buscarLanc(ant);
-        const fat = faturamento(f), fatAnt = faturamento(ant), cmv = cmvDe(f), cmvAnt = cmvDe(ant);
-        const desp = somaCent(atual, "valor"), despAnt = somaCent(antL, "valor");
-        const res = fat - cmv - desp, resAnt = fatAnt - cmvAnt - despAnt;
-        const grupos = GRUPOS.map(([g]) => {
-            const contas = CONTAS.filter((c) => c.grupo === g).map((c) => {
-                const v = valor(somaCent(atual.filter((l) => l.conta === c.id), "valor"), somaCent(antL.filter((l) => l.conta === c.id), "valor"));
-                return { conta: c, v, pct: pct(v.atual, fat) };
-            }).filter((c) => c.v.atual > 0 || c.v.anterior > 0).sort((a, b) => b.v.atual - a.v.atual);
-            const v = valor(somaCent(atual.filter((l) => CONTA[l.conta].grupo === g), "valor"), somaCent(antL.filter((l) => CONTA[l.conta].grupo === g), "valor"));
-            return { grupo: g, v, pct: pct(v.atual, fat), contas };
-        });
-        // mês a mês
-        const fatMes = new Map(), despMes = new Map();
-        buscarFat(f).forEach((x) => fatMes.set(Data.anoMes(x.data), (fatMes.get(Data.anoMes(x.data)) || 0) + x.valor));
-        atual.forEach((l) => { const k = Data.anoMes(dataNo(l, f.regime)); despMes.set(k, (despMes.get(k) || 0) + l.valor); });
-        const mensal = [];
-        for (let m = Data.comDia(f.inicio, 1); Data.anoMes(m) <= Data.anoMes(f.fim); m = Data.somarMeses(m, 1)) {
-            const k = Data.anoMes(m), fa = (fatMes.get(k) || 0) / 100, de = (despMes.get(k) || 0) / 100;
-            mensal.push({ mes: rotuloMes(k), faturamento: fa, despesa: de, pctDespesa: pct(de, fa) });
-        }
-        const porForn = new Map();
-        atual.forEach((l) => (porForn.get(l.fornecedor) || porForn.set(l.fornecedor, []).get(l.fornecedor)).push(l));
-        const fornecedores = [...porForn.entries()].map(([nome, ls]) => ({ nome, valor: somaCent(ls, "valor"), lancamentos: ls.length }))
-            .sort((a, b) => b.valor - a.valor).slice(0, 10);
-        return {
-            fat: valor(fat, fatAnt), cmv: valor(cmv, cmvAnt), margemBruta: valor(pct(fat - cmv, fat), pct(fatAnt - cmvAnt, fatAnt)),
-            desp: valor(desp, despAnt), pctDesp: valor(pct(desp, fat), pct(despAnt, fatAnt)), res: valor(res, resAnt), margem: valor(pct(res, fat), pct(resAnt, fatAnt)),
-            grupos, mensal, fornecedores, maiores: [...atual].sort((a, b) => b.valor - a.valor).slice(0, 10),
-        };
-    }
-
-    // ---------- Frete ----------
-    function montarFrete(f) {
-        const ant = anterior(f);
-        const fretes = buscarLanc(f).filter((l) => l.conta === "FRETE_VENDAS");
-        const fretesAnt = buscarLanc(ant).filter((l) => l.conta === "FRETE_VENDAS");
-        const somar = (ls) => somaJava(ls.map((l) => l.valor / 100));
-        const total = somar(fretes), pago = somar(fretes.filter((l) => l.pagamento != null));
-        const fat = faturamento(f), fatAnt = faturamento(ant);
-        const pagos = fretes.filter((l) => l.pagamento != null);
-        const prazoMedio = pagos.length ? pagos.reduce((s, l) => s + (l.pagamento - l.competencia), 0) / pagos.length : 0;
-        const porT = new Map();
-        fretes.forEach((l) => (porT.get(l.fornecedor) || porT.set(l.fornecedor, []).get(l.fornecedor)).push(l));
-        const transp = [...porT.entries()].map(([nome, ls]) => {
-            const v = somar(ls), p = somar(ls.filter((l) => l.pagamento != null));
-            return { nome, valor: v, notas: ls.length, pctTotal: pct(v, total), pctPago: pct(p, v) };
-        }).sort((a, b) => b.valor - a.valor);
-        const unidades = UNIDS.filter((u) => !f.unidade || f.unidade === u).map((u) => {
-            const ls = fretes.filter((l) => l.unidade === u), v = somar(ls);
-            return { nome: u, valor: v, pctTotal: pct(v, total), pctFaturamento: pct(v, faturamento({ ...f, unidade: u })), notas: ls.length };
-        });
-        const porMes = new Map();
-        fretes.forEach((l) => { const k = Data.anoMes(dataNo(l, f.regime)); (porMes.get(k) || porMes.set(k, []).get(k)).push(l); });
-        const mensal = [];
-        for (let m = Data.comDia(f.inicio, 1); Data.anoMes(m) <= Data.anoMes(f.fim); m = Data.somarMeses(m, 1)) {
-            const k = Data.anoMes(m), v = somar(porMes.get(k) || []);
-            const p = Data.partes(m), fimM = Data.de(p.ano, p.mes, Data.diasNoMes(p.ano, p.mes));
-            const fatM = faturamento({ ...f, inicio: Math.max(m, f.inicio), fim: Math.min(fimM, f.fim) });
-            mensal.push({ mes: rotuloMes(k), valor: v, pctFaturamento: pct(v, fatM) });
-        }
-        const totalAnt = somar(fretesAnt);
-        return { total: valor(total, totalAnt), pago, emAberto: total - pago, notas: fretes.length, medio: fretes.length ? total / fretes.length : 0,
-            pctFat: valor(pct(total, fat), pct(totalAnt, fatAnt)), prazoMedio, transp, unidades, mensal };
-    }
-
-    // ---------- Telas ----------
-    const app = document.getElementById("app");
-    let graficos = [];
-
-    function cabecalho(titulo, f, sub) {
-        return `<div class="cabecalho"><div><h1 class="titulo">${titulo}</h1><div class="subtitulo">${sub}</div></div></div>`;
-    }
-    function subtitulo(f, prefixoRegime) {
-        return `<span>${fmt.data(f.inicio)} a ${fmt.data(f.fim)}</span> · <span>${esc(f.unidade || "todas as unidades")}</span> · ${prefixoRegime}<b>${REGIMES[f.regime][1]}</b> · comparado ao <span>${descricaoAnterior(f)}</span>`;
-    }
-    function filtros(f, pagina, params) {
-        const ocultos = ["grupo", "conta", "fornecedor"].filter((k) => params && params.get(k))
-            .map((k) => `<input type="hidden" name="${k}" value="${esc(params.get(k))}">`).join("");
-        return `
-        <form class="filtros caixa" id="formFiltros">${ocultos}
-            <div><label for="inicio">De</label><input type="date" id="inicio" name="inicio" class="form-control form-control-sm" value="${Data.iso(f.inicio)}"></div>
-            <div><label for="fim">Até</label><input type="date" id="fim" name="fim" class="form-control form-control-sm" value="${Data.iso(f.fim)}"></div>
+/* (c) 2026 Italo Eduardo. Todos os direitos reservados. Proibida a cópia, modificação ou uso sem autorização por escrito. */
+(function(){"use strict";const{JavaRandom:ba,Data:n,MESES:Aa,Calendario:$a,Fmt:L,Rota:G,esc:I,somaJava:sa,arredHalfUp:Ea}=window.Demo,oa=[["PESSOAL","Pessoal"],["OCUPACAO","Ocupação"],["LOGISTICA","Logística"],["COMERCIAL","Comercial"],["ADMINISTRATIVO","Administrativo"],["TECNOLOGIA","Tecnologia"]],J=Object.fromEntries(oa),na=[["SALARIOS","4.1.01","Salários","PESSOAL"],["ENCARGOS","4.1.02","Encargos sociais","PESSOAL"],["BENEFICIOS","4.1.03","Benefícios","PESSOAL"],["ALUGUEL","4.2.01","Aluguel","OCUPACAO"],["ENERGIA","4.2.02","Energia elétrica","OCUPACAO"],["AGUA","4.2.03","Água","OCUPACAO"],["MANUTENCAO_PREDIAL","4.2.04","Manutenção predial","OCUPACAO"],["FRETE_VENDAS","4.3.01","Fretes sobre vendas","LOGISTICA"],["COMBUSTIVEL","4.3.02","Combustível","LOGISTICA"],["MANUTENCAO_FROTA","4.3.03","Manutenção de frota","LOGISTICA"],["PEDAGIO","4.3.04","Pedágios","LOGISTICA"],["COMISSOES","4.4.01","Comissões","COMERCIAL"],["MARKETING","4.4.02","Marketing","COMERCIAL"],["CONTABILIDADE","4.5.01","Contabilidade","ADMINISTRATIVO"],["MATERIAL_ESCRITORIO","4.5.02","Material de escritório","ADMINISTRATIVO"],["TELECOM","4.5.03","Telefonia e internet","ADMINISTRATIVO"],["LICENCAS","4.6.01","Licenças de software","TECNOLOGIA"],["NUVEM","4.6.02","Infraestrutura em nuvem","TECNOLOGIA"]].map(([a,t,e,s])=>({id:a,codigo:t,nome:e,grupo:s})),P=Object.fromEntries(na.map(a=>[a.id,a])),W={COMPETENCIA:["Competência","pela data do fato gerador"],CAIXA:["Caixa","pela data do pagamento"]},Ca=[{nome:"CD Campinas",fatDia:196e3,escala:1,pctFrete:.032},{nome:"CD Recife",fatDia:171e3,escala:.62,pctFrete:.041}],ia=["Expresso Horizonte","RotaSul Log","TransVale Cargas"],Ia={SALARIOS:"Folha de pagamento",ENCARGOS:"Encargos (INSS/FGTS)",BENEFICIOS:"Vale Mais Benefícios",ALUGUEL:"Imobiliária Paraná Galpões",ENERGIA:"Distribuidora de Energia Regional",AGUA:"Companhia de Saneamento",MANUTENCAO_PREDIAL:"Predial Serviços Técnicos",COMBUSTIVEL:"Posto Rodovia Sul",MANUTENCAO_FROTA:"Oficina Diesel Center",PEDAGIO:"Tag Rodovias",COMISSOES:"Representantes comerciais",MARKETING:"Agência Ponto Criativo",CONTABILIDADE:"Escritório Contábil Exato",MATERIAL_ESCRITORIO:"Papelaria Central",TELECOM:"Operadora Conecta",LICENCAS:"SoftGestão Licenças",NUVEM:"NuvemBR Infra"},X=a=>Math.round(Ea(a,2)*100);function Ma(a){const t=e=>{const{ano:s,mes:c,dia:v}=n.partes(e),C=s&4294965248^(s<<11)+(c<<6)+v|0;return(C^C>>>16)&15};return a.map((e,s)=>[t(e),s,e]).sort((e,s)=>e[0]-s[0]||s[1]-e[1]).map(e=>e[2])}function xa(a){const t=new ba(2026),e=l=>1+(t.nextDouble()*2-1)*l,s=[],c=[],v=n.partes(a).ano-1,C=n.anoMes(a);let F=4e4;const m=(l,b,g,S,M,R,O,r)=>{let o=null;if(!(r>a)&&t.nextDouble()<.97){const d=r+t.nextInt(9)-3;o=d>a?a:d}c.push({id:c.length+1,unidade:l.nome,conta:b,fornecedor:g,descricao:S,documento:M,valor:X(R),competencia:O,vencimento:r,pagamento:o})},p=(l,b,g,S,M,R,O)=>{M>a||m(l,b,Ia[b],g,null,S*e(O),M,R)};for(const l of Ca)for(let b=v,g=1;b*100+g<=C;g===12?(b++,g=1):g++){const S=b-v+(g-1)/12,M=Math.pow(1.08,S),R=g<=2?.9:g===11?1.08:g===12?1.15:1,O=Math.pow(1.055,S),r=n.de(b,g,1),o=n.diasNoMes(b,g),d=r+o-1;let A=0;const u=new Map;for(let h=r;h<=d&&h<=a;h++){if(!$a.isDiaUtil(h))continue;const $=l.fatDia*M*R*e(.12),ea=$*(.728+(t.nextDouble()*2-1)*.012);s.push({data:h,unidade:l.nome,valor:X($),custo:X(ea)}),A+=$;const w=h+(5-n.diaSemana(h));u.set(w,(u.has(w)?u.get(w):0)+$)}if(A===0)continue;const f=l.escala*O,D=h=>n.de(g===12?b+1:b,g===12?1:g+1,h),x=String(g).padStart(2,"0")+"/"+b,N=h=>r+h-1;p(l,"SALARIOS","Salários "+x,392e3*f,d,D(5),.01),p(l,"ENCARGOS","INSS e FGTS "+x,141e3*f,d,D(20),.01),p(l,"BENEFICIOS","Vale-refeição e transporte "+x,61e3*f,r,N(10),.03),p(l,"ALUGUEL","Aluguel do galpão "+x,118e3*f,r,N(10),0);const ka=[12,1,2,3].includes(g)?1.35:1;p(l,"ENERGIA","Energia "+x,27e3*f*ka,d,D(15),.08),p(l,"AGUA","Água "+x,3100*f,d,D(15),.1),p(l,"PEDAGIO","Pedágios "+x,8800*f,d,D(10),.15),p(l,"COMISSOES","Comissões "+x,A*.011,d,D(10),0),p(l,"MARKETING","Campanha "+x,14e3*f,N(8),N(25),.35),p(l,"CONTABILIDADE","Honorários "+x,11500*f,d,D(10),0),p(l,"MATERIAL_ESCRITORIO","Materiais "+x,3900*f,N(12),N(28),.3),p(l,"TELECOM","Telefonia e links "+x,6200*f,r,N(15),.04),p(l,"LICENCAS","Licenças ERP e WMS "+x,21500*f,r,N(10),0),p(l,"NUVEM","Servidores e backup "+x,8700*f,d,D(8),.12);const Ga=1+t.nextInt(3);for(let h=0;h<Ga;h++){const $=N(1+t.nextInt(o));p(l,"MANUTENCAO_PREDIAL","Manutenção predial",2e3+t.nextInt(9e3)*f,$,$+20,0)}const Ua=2+t.nextInt(3);for(let h=0;h<Ua;h++){const $=N(1+t.nextInt(o));p(l,"MANUTENCAO_FROTA","Revisão e peças",3500+t.nextInt(7e3)*f,$,$+15,0)}for(const h of Ma([...u.keys()])){let $=h>d?d:h;$>a&&($=a),p(l,"COMBUSTIVEL","Combustível da semana",6300*f,$,$+15,.15);const ea=u.get(h)*l.pctFrete*e(.1),w=[.48,.32,.2];for(let z=0;z<ia.length;z++)m(l,"FRETE_VENDAS",ia[z],"Fretes da semana","CT-e "+F++,ea*w[z],$,$+28)}}return{fats:s,lancs:c}}const ra=n.hoje(),{fats:Sa,lancs:ca}=xa(ra),da=[...new Set(ca.map(a=>a.unidade))].sort(),k=(a,t)=>t==="COMPETENCIA"?a.competencia:a.pagamento,V=a=>ca.filter(t=>{const e=k(t,a.regime);return e!=null&&e>=a.inicio&&e<=a.fim&&(!a.unidade||t.unidade===a.unidade)}),K=a=>Sa.filter(t=>t.data>=a.inicio&&t.data<=a.fim&&(!a.unidade||t.unidade===a.unidade)),y=(a,t)=>a.reduce((e,s)=>e+s[t],0)/100,U=a=>y(K(a),"valor"),la=a=>y(K(a),"custo"),E=(a,t)=>t===0?0:a/t*100,T=(a,t)=>({atual:a,anterior:t,variacaoPct:t===0?null:(a-t)/Math.abs(t)*100,pontos:a-t}),ma=a=>Aa[a%100-1]+"/"+String(Math.floor(a/100)).slice(2);function pa(a,t,e,s){return a!=null&&t!=null&&t<a&&([a,t]=[t,a]),{inicio:a,fim:t,unidade:e||null,regime:s==="CAIXA"?"CAIXA":"COMPETENCIA"}}function Oa(a){const t=n.somarMeses(n.comDia(ra,1),-1),e=n.partes(t);return pa(a.inicio??n.de(e.ano,1,1),a.fim??n.de(e.ano,e.mes,n.diasNoMes(e.ano,e.mes)),a.unidade,a.regime)}const ua=a=>{const t=n.partes(a.inicio);return t.dia===1&&a.fim===n.de(t.ano,t.mes,n.diasNoMes(t.ano,t.mes))},va=a=>{const t=n.partes(a);return t.mes===1&&t.dia===1},ga=a=>{const t=n.partes(a);return n.de(t.ano-1,t.mes,Math.min(t.dia,n.diasNoMes(t.ano-1,t.mes)))};function Q(a){if(a.inicio===a.fim)return{...a,inicio:a.inicio-1,fim:a.inicio-1};if(ua(a)){const e=n.somarMeses(a.inicio,-1),s=n.partes(e);return{...a,inicio:e,fim:n.de(s.ano,s.mes,n.diasNoMes(s.ano,s.mes))}}if(va(a.inicio))return{...a,inicio:ga(a.inicio),fim:ga(a.fim)};const t=a.fim-a.inicio+1;return{...a,inicio:a.inicio-t,fim:a.inicio-1}}function Da(a){return a.inicio===a.fim?"dia anterior":ua(a)?"mês anterior":va(a.inicio)?"mesmo período de "+n.partes(Q(a).inicio).ano:"período anterior de mesmo tamanho"}function Ta(a){return Oa(pa(n.deIso(a.get("inicio")),n.deIso(a.get("fim")),a.get("unidade"),a.get("regime")))}const Y=a=>({inicio:n.iso(a.inicio),fim:n.iso(a.fim),unidade:a.unidade,regime:a.regime}),i={moeda:L.moeda,pct:L.pct,num:L.num,data:n.br,moedaCurta(a){const t=Math.abs(a);return t>=1e6?"R$ "+L.num(a/1e6,2)+" mi":t>=1e4?"R$ "+L.num(a/1e3,0)+" mil":L.moeda(a)},inteiro:a=>L.num(Math.round(a),0),variacao:a=>a==null?"":(a>0?"+":"")+L.pct(a),pontos:a=>Math.abs(a)<.05?"estável":(a>0?"+":"")+L.num(a,1)+" p.p.",classe:(a,t)=>a==null||Math.abs(a)<.05?"neutro":a>0===t?"bom":"ruim"};function Ra(a){const t=Q(a),e=V(a),s=V(t),c=U(a),v=U(t),C=la(a),F=la(t),m=y(e,"valor"),p=y(s,"valor"),l=c-C-m,b=v-F-p,g=oa.map(([o])=>{const d=na.filter(u=>u.grupo===o).map(u=>{const f=T(y(e.filter(D=>D.conta===u.id),"valor"),y(s.filter(D=>D.conta===u.id),"valor"));return{conta:u,v:f,pct:E(f.atual,c)}}).filter(u=>u.v.atual>0||u.v.anterior>0).sort((u,f)=>f.v.atual-u.v.atual),A=T(y(e.filter(u=>P[u.conta].grupo===o),"valor"),y(s.filter(u=>P[u.conta].grupo===o),"valor"));return{grupo:o,v:A,pct:E(A.atual,c),contas:d}}),S=new Map,M=new Map;K(a).forEach(o=>S.set(n.anoMes(o.data),(S.get(n.anoMes(o.data))||0)+o.valor)),e.forEach(o=>{const d=n.anoMes(k(o,a.regime));M.set(d,(M.get(d)||0)+o.valor)});const R=[];for(let o=n.comDia(a.inicio,1);n.anoMes(o)<=n.anoMes(a.fim);o=n.somarMeses(o,1)){const d=n.anoMes(o),A=(S.get(d)||0)/100,u=(M.get(d)||0)/100;R.push({mes:ma(d),faturamento:A,despesa:u,pctDespesa:E(u,A)})}const O=new Map;e.forEach(o=>(O.get(o.fornecedor)||O.set(o.fornecedor,[]).get(o.fornecedor)).push(o));const r=[...O.entries()].map(([o,d])=>({nome:o,valor:y(d,"valor"),lancamentos:d.length})).sort((o,d)=>d.valor-o.valor).slice(0,10);return{fat:T(c,v),cmv:T(C,F),margemBruta:T(E(c-C,c),E(v-F,v)),desp:T(m,p),pctDesp:T(E(m,c),E(p,v)),res:T(l,b),margem:T(E(l,c),E(b,v)),grupos:g,mensal:R,fornecedores:r,maiores:[...e].sort((o,d)=>d.valor-o.valor).slice(0,10)}}function Na(a){const t=Q(a),e=V(a).filter(r=>r.conta==="FRETE_VENDAS"),s=V(t).filter(r=>r.conta==="FRETE_VENDAS"),c=r=>sa(r.map(o=>o.valor/100)),v=c(e),C=c(e.filter(r=>r.pagamento!=null)),F=U(a),m=U(t),p=e.filter(r=>r.pagamento!=null),l=p.length?p.reduce((r,o)=>r+(o.pagamento-o.competencia),0)/p.length:0,b=new Map;e.forEach(r=>(b.get(r.fornecedor)||b.set(r.fornecedor,[]).get(r.fornecedor)).push(r));const g=[...b.entries()].map(([r,o])=>{const d=c(o),A=c(o.filter(u=>u.pagamento!=null));return{nome:r,valor:d,notas:o.length,pctTotal:E(d,v),pctPago:E(A,d)}}).sort((r,o)=>o.valor-r.valor),S=da.filter(r=>!a.unidade||a.unidade===r).map(r=>{const o=e.filter(A=>A.unidade===r),d=c(o);return{nome:r,valor:d,pctTotal:E(d,v),pctFaturamento:E(d,U({...a,unidade:r})),notas:o.length}}),M=new Map;e.forEach(r=>{const o=n.anoMes(k(r,a.regime));(M.get(o)||M.set(o,[]).get(o)).push(r)});const R=[];for(let r=n.comDia(a.inicio,1);n.anoMes(r)<=n.anoMes(a.fim);r=n.somarMeses(r,1)){const o=n.anoMes(r),d=c(M.get(o)||[]),A=n.partes(r),u=n.de(A.ano,A.mes,n.diasNoMes(A.ano,A.mes)),f=U({...a,inicio:Math.max(r,a.inicio),fim:Math.min(u,a.fim)});R.push({mes:ma(o),valor:d,pctFaturamento:E(d,f)})}const O=c(s);return{total:T(v,O),pago:C,emAberto:v-C,notas:e.length,medio:e.length?v/e.length:0,pctFat:T(E(v,F),E(O,m)),prazoMedio:l,transp:g,unidades:S,mensal:R}}const Z=document.getElementById("app");let _=[];function fa(a,t,e){return`<div class="cabecalho"><div><h1 class="titulo">${a}</h1><div class="subtitulo">${e}</div></div></div>`}function ha(a,t){return`<span>${i.data(a.inicio)} a ${i.data(a.fim)}</span> · <span>${I(a.unidade||"todas as unidades")}</span> · ${t}<b>${W[a.regime][1]}</b> · comparado ao <span>${Da(a)}</span>`}function aa(a,t,e){return`
+        <form class="filtros caixa" id="formFiltros">${["grupo","conta","fornecedor"].filter(c=>e&&e.get(c)).map(c=>`<input type="hidden" name="${c}" value="${I(e.get(c))}">`).join("")}
+            <div><label for="inicio">De</label><input type="date" id="inicio" name="inicio" class="form-control form-control-sm" value="${n.iso(a.inicio)}"></div>
+            <div><label for="fim">Até</label><input type="date" id="fim" name="fim" class="form-control form-control-sm" value="${n.iso(a.fim)}"></div>
             <div><label for="unidade">Unidade</label><select id="unidade" name="unidade" class="form-select form-select-sm"><option value="">Todas</option>
-                ${UNIDS.map((u) => `<option value="${esc(u)}"${u === f.unidade ? " selected" : ""}>${esc(u)}</option>`).join("")}</select></div>
+                ${da.map(c=>`<option value="${I(c)}"${c===a.unidade?" selected":""}>${I(c)}</option>`).join("")}</select></div>
             <div><label>Regime</label><div class="regime" role="radiogroup" aria-label="Regime">
-                ${Object.entries(REGIMES).map(([r, [nome, expl]]) => `<input type="radio" class="btn-check" name="regime" id="reg-${r}" value="${r}"${r === f.regime ? " checked" : ""}>
-                <label class="btn btn-sm" for="reg-${r}" title="${expl}">${nome}</label>`).join("")}</div></div>
+                ${Object.entries(W).map(([c,[v,C]])=>`<input type="radio" class="btn-check" name="regime" id="reg-${c}" value="${c}"${c===a.regime?" checked":""}>
+                <label class="btn btn-sm" for="reg-${c}" title="${C}">${v}</label>`).join("")}</div></div>
             <div class="filtros-botoes"><button class="btn btn-sm btn-destaque" type="submit">Aplicar</button>
-                <a class="btn btn-sm btn-outline-secondary" href="#${pagina === "/frete" ? "/frete" : "/"}">Ano atual</a></div>
-        </form>`;
-    }
-    function ligarFiltros(pagina) {
-        const form = document.getElementById("formFiltros");
-        Rota.formulario(form, pagina);
-        form.querySelectorAll("input[name=regime]").forEach((r) => r.addEventListener("change", () => form.requestSubmit()));
-    }
-    const varSpan = (v, maiorMelhor, extra = "") => `<div class="var ${fmt.classe(v.variacaoPct, maiorMelhor)}${extra}">${fmt.variacao(v.variacaoPct)}</div>`;
-    const ppSpan = (v, maiorMelhor) => `<div class="var ${fmt.classe(v.pontos, maiorMelhor)}">${fmt.pontos(v.pontos)}</div>`;
-    const tdVar = (v, mm) => `<td class="text-end var ${fmt.classe(v.variacaoPct, mm)}">${fmt.variacao(v.variacaoPct)}</td>`;
-    const tdPp = (v, mm) => `<td class="text-end var ${fmt.classe(v.pontos, mm)}">${fmt.pontos(v.pontos)}</td>`;
-    const linkLanc = (f, extra) => Rota.href("/lancamentos", { ...query(f), ...extra });
-
-    function telaDre(f) {
-        const d = montarDre(f);
-        app.innerHTML = `
-        ${cabecalho("DRE gerencial", f, subtitulo(f, "despesas "))}
-        ${filtros(f, "/")}
+                <a class="btn btn-sm btn-outline-secondary" href="#${t==="/frete"?"/frete":"/"}">Ano atual</a></div>
+        </form>`}function ta(a){const t=document.getElementById("formFiltros");G.formulario(t,a),t.querySelectorAll("input[name=regime]").forEach(e=>e.addEventListener("change",()=>t.requestSubmit()))}const q=(a,t,e="")=>`<div class="var ${i.classe(a.variacaoPct,t)}${e}">${i.variacao(a.variacaoPct)}</div>`,H=(a,t)=>`<div class="var ${i.classe(a.pontos,t)}">${i.pontos(a.pontos)}</div>`,B=(a,t)=>`<td class="text-end var ${i.classe(a.variacaoPct,t)}">${i.variacao(a.variacaoPct)}</td>`,La=(a,t)=>`<td class="text-end var ${i.classe(a.pontos,t)}">${i.pontos(a.pontos)}</td>`,j=(a,t)=>G.href("/lancamentos",{...Y(a),...t});function ya(a){const t=Ra(a);Z.innerHTML=`
+        ${fa("DRE gerencial",a,ha(a,"despesas "))}
+        ${aa(a,"/")}
         <div class="kpis">
-            <div class="kpi caixa"><div class="rotulo">Faturamento</div><div class="valor">${fmt.moedaCurta(d.fat.atual)}</div>${varSpan(d.fat, true)}</div>
-            <div class="kpi caixa"><div class="rotulo">Margem bruta</div><div class="valor">${fmt.pct(d.margemBruta.atual)}</div>${ppSpan(d.margemBruta, true)}</div>
-            <div class="kpi caixa"><div class="rotulo">Despesas operacionais</div><div class="valor">${fmt.moedaCurta(d.desp.atual)}</div>${varSpan(d.desp, false)}</div>
-            <div class="kpi caixa"><div class="rotulo">Despesa sobre faturamento</div><div class="valor">${fmt.pct(d.pctDesp.atual)}</div>${ppSpan(d.pctDesp, false)}</div>
-            <div class="kpi caixa"><div class="rotulo">Resultado operacional</div><div class="valor">${fmt.moedaCurta(d.res.atual)}</div>${varSpan(d.res, true)}</div>
-            <div class="kpi caixa destaque"><div class="rotulo">Margem operacional</div><div class="valor">${fmt.pct(d.margem.atual)}</div>${ppSpan(d.margem, true)}</div>
+            <div class="kpi caixa"><div class="rotulo">Faturamento</div><div class="valor">${i.moedaCurta(t.fat.atual)}</div>${q(t.fat,!0)}</div>
+            <div class="kpi caixa"><div class="rotulo">Margem bruta</div><div class="valor">${i.pct(t.margemBruta.atual)}</div>${H(t.margemBruta,!0)}</div>
+            <div class="kpi caixa"><div class="rotulo">Despesas operacionais</div><div class="valor">${i.moedaCurta(t.desp.atual)}</div>${q(t.desp,!1)}</div>
+            <div class="kpi caixa"><div class="rotulo">Despesa sobre faturamento</div><div class="valor">${i.pct(t.pctDesp.atual)}</div>${H(t.pctDesp,!1)}</div>
+            <div class="kpi caixa"><div class="rotulo">Resultado operacional</div><div class="valor">${i.moedaCurta(t.res.atual)}</div>${q(t.res,!0)}</div>
+            <div class="kpi caixa destaque"><div class="rotulo">Margem operacional</div><div class="valor">${i.pct(t.margem.atual)}</div>${H(t.margem,!0)}</div>
         </div>
         <section class="caixa mb-3"><h2 class="secao">Mês a mês <small>barras: faturamento × despesa · linha: despesa sobre faturamento</small></h2>
             <div class="grafico"><canvas id="graficoMensal"></canvas></div></section>
         <div class="row g-3">
             <div class="col-xl-7"><section class="caixa h-100"><h2 class="secao">Demonstrativo de resultado <small>clique nas despesas para ver os lançamentos</small></h2>
                 <table class="table tabela dre"><thead><tr><th>Linha</th><th class="text-end">Valor</th><th class="text-end">% fat.</th><th class="text-end">Variação</th></tr></thead><tbody>
-                <tr class="linha-total"><td>Faturamento</td><td class="text-end">${fmt.moeda(d.fat.atual)}</td><td class="text-end">100,0%</td>${tdVar(d.fat, true)}</tr>
-                <tr class="linha-conta"><td>(−) Custo das mercadorias vendidas</td><td class="text-end">${fmt.moeda(d.cmv.atual)}</td><td class="text-end">${fmt.pct(100 - d.margemBruta.atual)}</td>${tdVar(d.cmv, false)}</tr>
-                <tr class="linha-total"><td>(=) Margem bruta</td><td class="text-end">${fmt.moeda(d.fat.atual - d.cmv.atual)}</td><td class="text-end">${fmt.pct(d.margemBruta.atual)}</td>${tdPp(d.margemBruta, true)}</tr>
+                <tr class="linha-total"><td>Faturamento</td><td class="text-end">${i.moeda(t.fat.atual)}</td><td class="text-end">100,0%</td>${B(t.fat,!0)}</tr>
+                <tr class="linha-conta"><td>(−) Custo das mercadorias vendidas</td><td class="text-end">${i.moeda(t.cmv.atual)}</td><td class="text-end">${i.pct(100-t.margemBruta.atual)}</td>${B(t.cmv,!1)}</tr>
+                <tr class="linha-total"><td>(=) Margem bruta</td><td class="text-end">${i.moeda(t.fat.atual-t.cmv.atual)}</td><td class="text-end">${i.pct(t.margemBruta.atual)}</td>${La(t.margemBruta,!0)}</tr>
                 <tr><td colspan="4" class="separador">(−) Despesas operacionais</td></tr>
-                ${d.grupos.map((g) => `
-                <tr class="linha-grupo"><td><a href="${linkLanc(f, { grupo: g.grupo })}">${GRUPO_NOME[g.grupo]}</a></td><td class="text-end">${fmt.moeda(g.v.atual)}</td><td class="text-end">${fmt.pct(g.pct)}</td>${tdVar(g.v, false)}</tr>
-                ${g.contas.map((c) => `<tr class="linha-conta"><td><a href="${linkLanc(f, { conta: c.conta.id })}"><span class="codigo">${c.conta.codigo}</span> <span>${c.conta.nome}</span></a></td>
-                    <td class="text-end">${fmt.moeda(c.v.atual)}</td><td class="text-end">${fmt.pct(c.pct)}</td>${tdVar(c.v, false)}</tr>`).join("")}`).join("")}
-                <tr class="linha-subtotal"><td>Total de despesas</td><td class="text-end">${fmt.moeda(d.desp.atual)}</td><td class="text-end">${fmt.pct(d.pctDesp.atual)}</td>${tdVar(d.desp, false)}</tr>
-                <tr class="linha-total resultado"><td>(=) Resultado operacional</td><td class="text-end">${fmt.moeda(d.res.atual)}</td><td class="text-end">${fmt.pct(d.margem.atual)}</td>${tdVar(d.res, true)}</tr>
+                ${t.grupos.map(s=>`
+                <tr class="linha-grupo"><td><a href="${j(a,{grupo:s.grupo})}">${J[s.grupo]}</a></td><td class="text-end">${i.moeda(s.v.atual)}</td><td class="text-end">${i.pct(s.pct)}</td>${B(s.v,!1)}</tr>
+                ${s.contas.map(c=>`<tr class="linha-conta"><td><a href="${j(a,{conta:c.conta.id})}"><span class="codigo">${c.conta.codigo}</span> <span>${c.conta.nome}</span></a></td>
+                    <td class="text-end">${i.moeda(c.v.atual)}</td><td class="text-end">${i.pct(c.pct)}</td>${B(c.v,!1)}</tr>`).join("")}`).join("")}
+                <tr class="linha-subtotal"><td>Total de despesas</td><td class="text-end">${i.moeda(t.desp.atual)}</td><td class="text-end">${i.pct(t.pctDesp.atual)}</td>${B(t.desp,!1)}</tr>
+                <tr class="linha-total resultado"><td>(=) Resultado operacional</td><td class="text-end">${i.moeda(t.res.atual)}</td><td class="text-end">${i.pct(t.margem.atual)}</td>${B(t.res,!0)}</tr>
                 </tbody></table></section></div>
             <div class="col-xl-5">
                 <section class="caixa mb-3"><h2 class="secao">Maiores fornecedores</h2><table class="table tabela">
                     <thead><tr><th>Fornecedor</th><th class="text-end">Lanç.</th><th class="text-end">Valor</th></tr></thead>
-                    <tbody>${d.fornecedores.map((x) => `<tr><td><a href="${linkLanc(f, { fornecedor: x.nome })}">${esc(x.nome)}</a></td><td class="text-end">${x.lancamentos}</td><td class="text-end">${fmt.moedaCurta(x.valor)}</td></tr>`).join("")}</tbody></table></section>
+                    <tbody>${t.fornecedores.map(s=>`<tr><td><a href="${j(a,{fornecedor:s.nome})}">${I(s.nome)}</a></td><td class="text-end">${s.lancamentos}</td><td class="text-end">${i.moedaCurta(s.valor)}</td></tr>`).join("")}</tbody></table></section>
                 <section class="caixa"><h2 class="secao">Maiores lançamentos</h2><table class="table tabela">
                     <thead><tr><th>Data</th><th>Descrição</th><th class="text-end">Valor</th></tr></thead>
-                    <tbody>${d.maiores.map((l) => `<tr><td class="text-nowrap">${fmt.data(dataNo(l, f.regime))}</td><td><span>${esc(l.descricao)}</span> <small class="text-secondary">· ${esc(l.unidade)}</small></td><td class="text-end">${fmt.moedaCurta(l.valor / 100)}</td></tr>`).join("")}</tbody></table></section>
+                    <tbody>${t.maiores.map(s=>`<tr><td class="text-nowrap">${i.data(k(s,a.regime))}</td><td><span>${I(s.descricao)}</span> <small class="text-secondary">· ${I(s.unidade)}</small></td><td class="text-end">${i.moedaCurta(s.valor/100)}</td></tr>`).join("")}</tbody></table></section>
             </div>
         </div>
-        <p class="rodape">Versão de demonstração rodando no navegador, com as mesmas regras e os mesmos dados fictícios do sistema em Java.</p>`;
-        ligarFiltros("/");
-        const brl = (v) => "R$ " + (v / 1e6).toLocaleString("pt-BR", { maximumFractionDigits: 2 }) + " mi";
-        graficos.push(new Chart(document.getElementById("graficoMensal"), {
-            data: { labels: d.mensal.map((m) => m.mes), datasets: [
-                { type: "bar", label: "Faturamento", data: d.mensal.map((m) => m.faturamento), backgroundColor: "#a7f3d0", borderRadius: 4, yAxisID: "y" },
-                { type: "bar", label: "Despesa", data: d.mensal.map((m) => m.despesa), backgroundColor: "#065f46", borderRadius: 4, yAxisID: "y" },
-                { type: "line", label: "Despesa / faturamento", data: d.mensal.map((m) => m.pctDespesa), borderColor: "#d4a017", backgroundColor: "#d4a017", borderWidth: 2.5, tension: .3, yAxisID: "pct" },
-            ] },
-            options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-                scales: { y: { ticks: { callback: brl } }, pct: { position: "right", grid: { display: false }, ticks: { callback: (v) => v + "%" }, suggestedMin: 15 } },
-                plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } },
-                    tooltip: { callbacks: { label: (c) => c.dataset.yAxisID === "pct" ? `${c.dataset.label}: ${c.parsed.y.toLocaleString("pt-BR", { maximumFractionDigits: 1 })}%` : `${c.dataset.label}: ${brl(c.parsed.y)}` } } } },
-        }));
-    }
-
-    function telaFrete(f) {
-        const d = montarFrete(f);
-        app.innerHTML = `
-        ${cabecalho("Fretes sobre vendas", f, subtitulo(f, ""))}
-        ${filtros(f, "/frete")}
+        <p class="rodape">Versão de demonstração rodando no navegador, com as mesmas regras e os mesmos dados fictícios do sistema em Java.</p>`,ta("/");const e=s=>"R$ "+(s/1e6).toLocaleString("pt-BR",{maximumFractionDigits:2})+" mi";_.push(new Chart(document.getElementById("graficoMensal"),{data:{labels:t.mensal.map(s=>s.mes),datasets:[{type:"bar",label:"Faturamento",data:t.mensal.map(s=>s.faturamento),backgroundColor:"#a7f3d0",borderRadius:4,yAxisID:"y"},{type:"bar",label:"Despesa",data:t.mensal.map(s=>s.despesa),backgroundColor:"#065f46",borderRadius:4,yAxisID:"y"},{type:"line",label:"Despesa / faturamento",data:t.mensal.map(s=>s.pctDespesa),borderColor:"#d4a017",backgroundColor:"#d4a017",borderWidth:2.5,tension:.3,yAxisID:"pct"}]},options:{maintainAspectRatio:!1,interaction:{mode:"index",intersect:!1},scales:{y:{ticks:{callback:e}},pct:{position:"right",grid:{display:!1},ticks:{callback:s=>s+"%"},suggestedMin:15}},plugins:{legend:{position:"bottom",labels:{usePointStyle:!0,boxWidth:8}},tooltip:{callbacks:{label:s=>s.dataset.yAxisID==="pct"?`${s.dataset.label}: ${s.parsed.y.toLocaleString("pt-BR",{maximumFractionDigits:1})}%`:`${s.dataset.label}: ${e(s.parsed.y)}`}}}}}))}function Fa(a){const t=Na(a);Z.innerHTML=`
+        ${fa("Fretes sobre vendas",a,ha(a,""))}
+        ${aa(a,"/frete")}
         <div class="kpis">
-            <div class="kpi caixa destaque"><div class="rotulo">Frete total</div><div class="valor">${fmt.moedaCurta(d.total.atual)}</div>${varSpan(d.total, false)}</div>
-            <div class="kpi caixa"><div class="rotulo">Frete sobre faturamento</div><div class="valor">${fmt.pct(d.pctFat.atual)}</div>${ppSpan(d.pctFat, false)}</div>
-            <div class="kpi caixa"><div class="rotulo">Pago</div><div class="valor">${fmt.moedaCurta(d.pago)}</div><div class="var neutro">prazo médio ${fmt.num(d.prazoMedio, 0)} dias</div></div>
-            <div class="kpi caixa"><div class="rotulo">Em aberto</div><div class="valor">${fmt.moedaCurta(d.emAberto)}</div><div class="var neutro">${f.regime === "CAIXA" ? "no caixa só entra o que foi pago" : "a vencer ou atrasado"}</div></div>
-            <div class="kpi caixa"><div class="rotulo">Conhecimentos de transporte</div><div class="valor">${fmt.inteiro(d.notas)}</div><div class="var neutro">média ${fmt.moedaCurta(d.medio)}</div></div>
+            <div class="kpi caixa destaque"><div class="rotulo">Frete total</div><div class="valor">${i.moedaCurta(t.total.atual)}</div>${q(t.total,!1)}</div>
+            <div class="kpi caixa"><div class="rotulo">Frete sobre faturamento</div><div class="valor">${i.pct(t.pctFat.atual)}</div>${H(t.pctFat,!1)}</div>
+            <div class="kpi caixa"><div class="rotulo">Pago</div><div class="valor">${i.moedaCurta(t.pago)}</div><div class="var neutro">prazo médio ${i.num(t.prazoMedio,0)} dias</div></div>
+            <div class="kpi caixa"><div class="rotulo">Em aberto</div><div class="valor">${i.moedaCurta(t.emAberto)}</div><div class="var neutro">${a.regime==="CAIXA"?"no caixa só entra o que foi pago":"a vencer ou atrasado"}</div></div>
+            <div class="kpi caixa"><div class="rotulo">Conhecimentos de transporte</div><div class="valor">${i.inteiro(t.notas)}</div><div class="var neutro">média ${i.moedaCurta(t.medio)}</div></div>
         </div>
         <div class="row g-3 mb-3">
             <div class="col-xl-7"><section class="caixa h-100"><h2 class="secao">Mês a mês <small>valor e % sobre o faturamento</small></h2><div class="grafico"><canvas id="graficoFrete"></canvas></div></section></div>
             <div class="col-xl-5"><section class="caixa h-100"><h2 class="secao">Por unidade</h2>
-                ${d.unidades.map((u) => `<div class="unidade"><div class="d-flex justify-content-between align-items-baseline"><b>${esc(u.nome)}</b><span>${fmt.moedaCurta(u.valor)}</span></div>
-                    <div class="barra"><span style="width:${u.pctTotal}%"></span></div>
-                    <div class="small text-secondary"><span>${fmt.pct(u.pctTotal)}</span> do frete · <b>${fmt.pct(u.pctFaturamento)}</b> do faturamento da unidade · <span>${u.notas} CT-e</span></div></div>`).join("")}
+                ${t.unidades.map(e=>`<div class="unidade"><div class="d-flex justify-content-between align-items-baseline"><b>${I(e.nome)}</b><span>${i.moedaCurta(e.valor)}</span></div>
+                    <div class="barra"><span style="width:${e.pctTotal}%"></span></div>
+                    <div class="small text-secondary"><span>${i.pct(e.pctTotal)}</span> do frete · <b>${i.pct(e.pctFaturamento)}</b> do faturamento da unidade · <span>${e.notas} CT-e</span></div></div>`).join("")}
             </section></div>
         </div>
         <section class="caixa"><h2 class="secao">Por transportadora</h2><table class="table tabela">
             <thead><tr><th>Transportadora</th><th class="text-end">CT-e</th><th class="text-end">Valor</th><th class="text-end">% do frete</th><th>Pago</th></tr></thead>
-            <tbody>${d.transp.map((t) => `<tr><td><a href="${linkLanc(f, { conta: "FRETE_VENDAS", fornecedor: t.nome })}">${esc(t.nome)}</a></td><td class="text-end">${t.notas}</td>
-                <td class="text-end">${fmt.moeda(t.valor)}</td><td class="text-end">${fmt.pct(t.pctTotal)}</td>
-                <td style="width: 30%"><div class="d-flex align-items-center gap-2"><div class="barra flex-fill"><span style="width:${t.pctPago}%"></span></div><small>${fmt.pct(t.pctPago)}</small></div></td></tr>`).join("")}</tbody></table></section>
-        <p class="rodape">Versão de demonstração rodando no navegador, com as mesmas regras e os mesmos dados fictícios do sistema em Java.</p>`;
-        ligarFiltros("/frete");
-        graficos.push(new Chart(document.getElementById("graficoFrete"), {
-            data: { labels: d.mensal.map((m) => m.mes), datasets: [
-                { type: "bar", label: "Frete", data: d.mensal.map((m) => m.valor), backgroundColor: "#065f46", borderRadius: 4, yAxisID: "y" },
-                { type: "line", label: "% do faturamento", data: d.mensal.map((m) => m.pctFaturamento), borderColor: "#d4a017", backgroundColor: "#d4a017", borderWidth: 2.5, tension: .3, yAxisID: "pct" },
-            ] },
-            options: { maintainAspectRatio: false, interaction: { mode: "index", intersect: false },
-                scales: { y: { ticks: { callback: (v) => "R$ " + (v / 1e3).toLocaleString("pt-BR", { maximumFractionDigits: 0 }) + " mil" } },
-                    pct: { position: "right", grid: { display: false }, ticks: { callback: (v) => v + "%" }, suggestedMin: 2, suggestedMax: 5 } },
-                plugins: { legend: { position: "bottom", labels: { usePointStyle: true, boxWidth: 8 } } } },
-        }));
-    }
-
-    function telaLancamentos(f, params) {
-        const grupo = params.get("grupo"), conta = params.get("conta"), fornecedor = params.get("fornecedor");
-        const lista = buscarLanc(f).filter((l) => (!grupo || CONTA[l.conta].grupo === grupo) && (!conta || l.conta === conta) && (!fornecedor || l.fornecedor === fornecedor))
-            .sort((a, b) => dataNo(b, f.regime) - dataNo(a, f.regime));
-        const titulo = conta && CONTA[conta] ? CONTA[conta].codigo + " · " + CONTA[conta].nome
-            : grupo && GRUPO_NOME[grupo] ? "Grupo " + GRUPO_NOME[grupo] : fornecedor || "Todas as despesas";
-        const total = somaJava(lista.map((l) => l.valor / 100));
-        app.innerHTML = `
-        <a class="small text-secondary text-decoration-none" href="${Rota.href("/", query(f))}">← voltar para a DRE</a>
-        <div class="cabecalho mt-2"><div><h1 class="titulo">${esc(titulo)}</h1>
-            <div class="subtitulo"><span>${lista.length} lançamento(s)</span> · total <b>${fmt.moeda(total)}</b> · <span>${REGIMES[f.regime][1]}</span></div></div></div>
-        ${filtros(f, "/lancamentos", params)}
+            <tbody>${t.transp.map(e=>`<tr><td><a href="${j(a,{conta:"FRETE_VENDAS",fornecedor:e.nome})}">${I(e.nome)}</a></td><td class="text-end">${e.notas}</td>
+                <td class="text-end">${i.moeda(e.valor)}</td><td class="text-end">${i.pct(e.pctTotal)}</td>
+                <td style="width: 30%"><div class="d-flex align-items-center gap-2"><div class="barra flex-fill"><span style="width:${e.pctPago}%"></span></div><small>${i.pct(e.pctPago)}</small></div></td></tr>`).join("")}</tbody></table></section>
+        <p class="rodape">Versão de demonstração rodando no navegador, com as mesmas regras e os mesmos dados fictícios do sistema em Java.</p>`,ta("/frete"),_.push(new Chart(document.getElementById("graficoFrete"),{data:{labels:t.mensal.map(e=>e.mes),datasets:[{type:"bar",label:"Frete",data:t.mensal.map(e=>e.valor),backgroundColor:"#065f46",borderRadius:4,yAxisID:"y"},{type:"line",label:"% do faturamento",data:t.mensal.map(e=>e.pctFaturamento),borderColor:"#d4a017",backgroundColor:"#d4a017",borderWidth:2.5,tension:.3,yAxisID:"pct"}]},options:{maintainAspectRatio:!1,interaction:{mode:"index",intersect:!1},scales:{y:{ticks:{callback:e=>"R$ "+(e/1e3).toLocaleString("pt-BR",{maximumFractionDigits:0})+" mil"}},pct:{position:"right",grid:{display:!1},ticks:{callback:e=>e+"%"},suggestedMin:2,suggestedMax:5}},plugins:{legend:{position:"bottom",labels:{usePointStyle:!0,boxWidth:8}}}}}))}function Pa(a,t){const e=t.get("grupo"),s=t.get("conta"),c=t.get("fornecedor"),v=V(a).filter(m=>(!e||P[m.conta].grupo===e)&&(!s||m.conta===s)&&(!c||m.fornecedor===c)).sort((m,p)=>k(p,a.regime)-k(m,a.regime)),C=s&&P[s]?P[s].codigo+" · "+P[s].nome:e&&J[e]?"Grupo "+J[e]:c||"Todas as despesas",F=sa(v.map(m=>m.valor/100));Z.innerHTML=`
+        <a class="small text-secondary text-decoration-none" href="${G.href("/",Y(a))}">← voltar para a DRE</a>
+        <div class="cabecalho mt-2"><div><h1 class="titulo">${I(C)}</h1>
+            <div class="subtitulo"><span>${v.length} lançamento(s)</span> · total <b>${i.moeda(F)}</b> · <span>${W[a.regime][1]}</span></div></div></div>
+        ${aa(a,"/lancamentos",t)}
         <section class="caixa"><div class="table-responsive"><table class="table tabela table-hover"><thead><tr>
-            <th>${f.regime === "CAIXA" ? "Pago em" : "Competência"}</th><th>Conta</th><th>Fornecedor</th><th>Descrição</th><th>Unidade</th><th>Vencimento</th><th>Situação</th><th class="text-end">Valor</th>
-        </tr></thead><tbody>${lista.map((l) => `<tr>
-            <td class="text-nowrap">${fmt.data(dataNo(l, f.regime))}</td>
-            <td class="text-nowrap"><span class="codigo">${CONTA[l.conta].codigo}</span> <span>${CONTA[l.conta].nome}</span></td>
-            <td>${esc(l.fornecedor)}</td><td><span>${esc(l.descricao)}</span>${l.documento ? ` <small class="text-secondary">· ${esc(l.documento)}</small>` : ""}</td>
-            <td class="text-nowrap">${esc(l.unidade)}</td><td class="text-nowrap">${fmt.data(l.vencimento)}</td>
-            <td>${l.pagamento != null ? `<span class="situacao pago">pago ${fmt.data(l.pagamento)}</span>` : `<span class="situacao aberto">em aberto</span>`}</td>
-            <td class="text-end text-nowrap">${fmt.moeda(l.valor / 100)}</td></tr>`).join("")}</tbody></table></div>
-        </section>`;
-        ligarFiltros("/lancamentos");
-    }
-
-    Rota.iniciar(({ caminho, params }) => {
-        graficos.forEach((g) => g.destroy());
-        graficos = [];
-        const f = filtroDe(params);
-        const q = query(f);
-        document.getElementById("navDre").href = Rota.href("/", q);
-        document.getElementById("navFrete").href = Rota.href("/frete", q);
-        document.getElementById("navDre").classList.toggle("ativo", caminho === "/");
-        document.getElementById("navFrete").classList.toggle("ativo", caminho === "/frete");
-        if (caminho === "/frete") { telaFrete(f); document.title = "Painel de Despesas · Frete"; }
-        else if (caminho === "/lancamentos") { telaLancamentos(f, params); document.title = "Painel de Despesas · Lançamentos"; }
-        else { telaDre(f); document.title = "Painel de Despesas · DRE"; }
-    });
-})();
+            <th>${a.regime==="CAIXA"?"Pago em":"Competência"}</th><th>Conta</th><th>Fornecedor</th><th>Descrição</th><th>Unidade</th><th>Vencimento</th><th>Situação</th><th class="text-end">Valor</th>
+        </tr></thead><tbody>${v.map(m=>`<tr>
+            <td class="text-nowrap">${i.data(k(m,a.regime))}</td>
+            <td class="text-nowrap"><span class="codigo">${P[m.conta].codigo}</span> <span>${P[m.conta].nome}</span></td>
+            <td>${I(m.fornecedor)}</td><td><span>${I(m.descricao)}</span>${m.documento?` <small class="text-secondary">· ${I(m.documento)}</small>`:""}</td>
+            <td class="text-nowrap">${I(m.unidade)}</td><td class="text-nowrap">${i.data(m.vencimento)}</td>
+            <td>${m.pagamento!=null?`<span class="situacao pago">pago ${i.data(m.pagamento)}</span>`:'<span class="situacao aberto">em aberto</span>'}</td>
+            <td class="text-end text-nowrap">${i.moeda(m.valor/100)}</td></tr>`).join("")}</tbody></table></div>
+        </section>`,ta("/lancamentos")}G.iniciar(({caminho:a,params:t})=>{_.forEach(c=>c.destroy()),_=[];const e=Ta(t),s=Y(e);document.getElementById("navDre").href=G.href("/",s),document.getElementById("navFrete").href=G.href("/frete",s),document.getElementById("navDre").classList.toggle("ativo",a==="/"),document.getElementById("navFrete").classList.toggle("ativo",a==="/frete"),a==="/frete"?(Fa(e),document.title="Painel de Despesas · Frete"):a==="/lancamentos"?(Pa(e,t),document.title="Painel de Despesas · Lançamentos"):(ya(e),document.title="Painel de Despesas · DRE")})})();
